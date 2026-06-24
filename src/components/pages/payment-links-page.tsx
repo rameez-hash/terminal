@@ -19,7 +19,7 @@ interface PaymentLink {
   externalUrl?: string;
   createdAt: string;
   client: { id: string; name: string; email: string };
-  seller?: { id: string; name: string };
+  seller?: { id: string; name: string; role: string };
 }
 
 interface Client {
@@ -103,11 +103,9 @@ export function PaymentLinksPage({ isAdmin }: { isAdmin?: boolean }) {
           <h1 className="text-2xl font-bold">Payment Links</h1>
           <p className="text-slate-500">Create and manage payment links</p>
         </div>
-        {!isAdmin && (
-          <Button onClick={() => setModalOpen(true)}>
-            <Plus className="h-4 w-4" /> Create Link
-          </Button>
-        )}
+        <Button onClick={() => setModalOpen(true)}>
+          <Plus className="h-4 w-4" /> Create Link
+        </Button>
       </div>
 
       <div className="flex flex-col gap-4 sm:flex-row">
@@ -142,7 +140,7 @@ export function PaymentLinksPage({ isAdmin }: { isAdmin?: boolean }) {
               <thead className="border-b border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-800">
                 <tr>
                   <th className="px-4 py-3 text-left font-medium">Client</th>
-                  {isAdmin && <th className="px-4 py-3 text-left font-medium">Seller</th>}
+                  {isAdmin && <th className="px-4 py-3 text-left font-medium">Created By</th>}
                   <th className="px-4 py-3 text-left font-medium">Amount</th>
                   <th className="px-4 py-3 text-left font-medium">Provider</th>
                   <th className="px-4 py-3 text-left font-medium">Status</th>
@@ -157,7 +155,16 @@ export function PaymentLinksPage({ isAdmin }: { isAdmin?: boolean }) {
                       <div className="font-medium">{link.client.name}</div>
                       <div className="text-xs text-slate-500">{link.client.email}</div>
                     </td>
-                    {isAdmin && <td className="px-4 py-3">{link.seller?.name}</td>}
+                    {isAdmin && (
+                      <td className="px-4 py-3">
+                        <div className="font-medium">{link.seller?.name}</div>
+                        <div className="mt-0.5">
+                          <Badge variant={link.seller?.role === "SUPER_ADMIN" ? "warning" : "default"}>
+                            {link.seller?.role === "SUPER_ADMIN" ? "Admin" : "Seller"}
+                          </Badge>
+                        </div>
+                      </td>
+                    )}
                     <td className="px-4 py-3 font-medium">{formatCurrency(link.amount, link.currency)}</td>
                     <td className="px-4 py-3"><Badge variant="info">{link.provider}</Badge></td>
                     <td className="px-4 py-3"><Badge variant={statusVariant(link.status)}>{link.status}</Badge></td>

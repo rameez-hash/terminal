@@ -39,7 +39,7 @@ export async function GET(request: Request) {
         where,
         include: {
           client: { select: { id: true, name: true, email: true } },
-          seller: { select: { id: true, name: true, email: true } },
+          seller: { select: { id: true, name: true, email: true, role: true } },
         },
         orderBy: { [sortBy]: sortOrder },
         skip,
@@ -81,7 +81,10 @@ export async function POST(request: Request) {
     const updated = await prisma.paymentLink.update({
       where: { id: paymentLink.id },
       data: { externalUrl: brandedUrl },
-      include: { client: { select: { id: true, name: true, email: true } } },
+      include: {
+        client: { select: { id: true, name: true, email: true } },
+        seller: { select: { id: true, name: true, email: true, role: true } },
+      },
     });
 
     await logActivity({
