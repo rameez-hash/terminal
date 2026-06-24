@@ -1,14 +1,10 @@
 import bcrypt from "bcryptjs";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { Pool } from "pg";
+import { getDatabaseUrl } from "../src/lib/database-url";
 import { PrismaClient } from "../src/generated/prisma/client";
 
-const url = process.env.DATABASE_URL;
-if (!url) {
-  throw new Error("DATABASE_URL environment variable is not set");
-}
-
-const pool = new Pool({ connectionString: url });
+const pool = new Pool({ connectionString: getDatabaseUrl() });
 const adapter = new PrismaPg(pool);
 const prisma = new PrismaClient({ adapter });
 
