@@ -1,0 +1,108 @@
+import { NextResponse } from "next/server";
+import { z } from "zod";
+import { prisma } from "@/lib/prisma";
+import { requireAdmin, requireAuth } from "@/lib/auth";
+import { logActivity } from "@/lib/activity";
+import { createNotification } from "@/lib/notifications";
+import { parsePaginationParams, paginatedResponse } from "@/lib/utils";
+
+const createTargetSchema = z.object({
+  sellerId: z.string(),
+  month: z.number().min(1).max(12),
+  year: z.number().min(2020),
+  targetAmount: z.number().positive(),
+  currency: z.string().default("USD"),
+});
+
+export async function GET(request: Request) {
+  try {
+    const user = await requireAuth();
+    const { searchParams } = new URL(request.url);
+    const { page, limit, skip } = parsePaginationParams(searchParams);
+    const sellerId = searchParams.get("sellerId");
+    const month = searchParams.get("month");
+    const year = searchParams.get("year");
+
+    const where = {
+      ...(user.role === "SELLER" ? { sellerId: user.id } : sellerId ? { sellerId } : {}),
+      ...(month && { month: parseInt(month, 10) }),
+      ...(year && { year: parseInt(year, 10) }),
+    };
+
+    const [targets, total] = await Promise.all([
+      prisma.monthlyTarget.findMany({
+        where,
+        include: { seller: { select: { id: true, name: true, email: true } } },
+        orderBy: [{ year: "desc" }, { month: "desc" }],
+        skip,
+        take: limit,
+      }),
+      prisma.monthlyTarget.count({ where }),
+    ]);
+
+    const enriched = targets.map((t) => ({
+      ...t,
+      completionPercentage: Math.min(100, Math.round((t.achievedAmount / t.targetAmount) * 100)),
+      remainingAmount: Math.max(0, t.targetAmount - t.achievedAmount),
+    }));
+
+    return NextResponse.json(paginatedResponse(enriched, total, page, limit));
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Internal server error";
+    return NextResponse.json({ error: message }, { status: message === "Unauthorized" ? 401 : 500 });
+  }
+}
+
+export async function POST(request: Request) {
+  try {
+    const admin = await requireAdmin();
+    const body = await request.json();
+    const data = createTargetSchema.parse(body);
+
+    const seller = await prisma.user.findFirst({
+      where: { id: data.sellerId, role: "SELLER" },
+    });
+    if (!seller) {
+      return NextResponse.json({ error: "Seller not found" }, { status: 404 });
+    }
+
+    const target = await prisma.monthlyTarget.upsert({
+      where: {
+        sellerId_month_year: {
+          sellerId: data.sellerId,
+          month: data.month,
+          year: data.year,
+        },
+      },
+      update: {
+        targetAmount: data.targetAmount,
+        currency: data.currency,
+      },
+      create: data,
+      include: { seller: { select: { id: true, name: true, email: true } } },
+    });
+
+    await logActivity({
+      userId: admin.id,
+      type: "TARGET_ASSIGNED",
+      description: `Assigned target of ${data.targetAmount} ${data.currency} to ${seller.name} for ${data.month}/${data.year}`,
+      metadata: { targetId: target.id, sellerId: data.sellerId },
+    });
+
+    await createNotification({
+      userId: data.sellerId,
+      type: "NEW_TARGET_ASSIGNED",
+      title: "New Target Assigned",
+      message: `Your monthly target for ${data.month}/${data.year} is ${data.targetAmount} ${data.currency}.`,
+      metadata: { targetId: target.id, targetAmount: data.targetAmount },
+    });
+
+    return NextResponse.json(target, { status: 201 });
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return NextResponse.json({ error: error.issues[0].message }, { status: 400 });
+    }
+    const message = error instanceof Error ? error.message : "Internal server error";
+    return NextResponse.json({ error: message }, { status: message === "Unauthorized" ? 401 : message === "Forbidden" ? 403 : 500 });
+  }
+}

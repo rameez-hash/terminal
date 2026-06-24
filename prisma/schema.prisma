@@ -1,0 +1,274 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+enum Role {
+  SUPER_ADMIN
+  SELLER
+}
+
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+}
+
+enum PaymentProvider {
+  STRIPE
+  PAYPAL
+}
+
+enum PaymentLinkStatus {
+  ACTIVE
+  EXPIRED
+  PAID
+  CANCELLED
+}
+
+enum TransactionStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  REFUNDED
+}
+
+enum ActivityType {
+  LOGIN
+  LOGOUT
+  CLIENT_CREATED
+  CLIENT_UPDATED
+  PAYMENT_LINK_CREATED
+  PAYMENT_SUCCESS
+  TARGET_ASSIGNED
+  PROFILE_UPDATED
+  SELLER_CREATED
+  SELLER_UPDATED
+  SELLER_SUSPENDED
+  SELLER_DELETED
+}
+
+enum NotificationType {
+  PAYMENT_RECEIVED
+  TARGET_COMPLETED
+  NEW_TARGET_ASSIGNED
+  NEW_SELLER_CREATED
+  HIGH_VALUE_TRANSACTION
+  MONTHLY_TARGET_COMPLETED
+}
+
+model User {
+  id            String     @id @default(cuid())
+  name          String
+  email         String     @unique
+  password      String
+  role          Role       @default(SELLER)
+  status        UserStatus @default(ACTIVE)
+  phone         String?
+  avatar        String?
+  emailVerified DateTime?
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+
+  accounts       Account[]
+  sessions       Session[]
+  clientsCreated Client[]        @relation("ClientCreator")
+  paymentLinks   PaymentLink[]
+  transactions   Transaction[]
+  monthlyTargets MonthlyTarget[]
+  activityLogs   ActivityLog[]
+  notifications  Notification[]
+
+  @@map("users")
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@map("accounts")
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+  @@map("verification_tokens")
+}
+
+model PasswordResetToken {
+  id        String   @id @default(cuid())
+  email     String
+  token     String   @unique
+  expires   DateTime
+  createdAt DateTime @default(now())
+
+  @@map("password_reset_tokens")
+}
+
+model Client {
+  id        String   @id @default(cuid())
+  name      String
+  email     String
+  phone     String?
+  company   String?
+  country   String?
+  notes     String?
+  createdBy String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  creator      User          @relation("ClientCreator", fields: [createdBy], references: [id])
+  paymentLinks PaymentLink[]
+  transactions Transaction[]
+
+  @@index([createdBy])
+  @@index([email])
+  @@map("clients")
+}
+
+model MonthlyTarget {
+  id          String   @id @default(cuid())
+  sellerId    String
+  month       Int
+  year        Int
+  targetAmount Float
+  achievedAmount Float @default(0)
+  currency    String   @default("USD")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  seller User @relation(fields: [sellerId], references: [id], onDelete: Cascade)
+
+  @@unique([sellerId, month, year])
+  @@index([sellerId])
+  @@map("monthly_targets")
+}
+
+model PaymentLink {
+  id              String            @id @default(cuid())
+  sellerId        String
+  clientId        String
+  amount          Float
+  currency        String            @default("USD")
+  description     String?
+  provider        PaymentProvider
+  status          PaymentLinkStatus @default(ACTIVE)
+  externalId      String?
+  externalUrl     String?
+  stripeSessionId String?
+  paypalOrderId   String?
+  expiresAt       DateTime?
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  seller       User          @relation(fields: [sellerId], references: [id])
+  client       Client        @relation(fields: [clientId], references: [id])
+  transactions Transaction[]
+
+  @@index([sellerId])
+  @@index([clientId])
+  @@index([status])
+  @@map("payment_links")
+}
+
+model Transaction {
+  id              String            @id @default(cuid())
+  sellerId        String
+  clientId        String
+  paymentLinkId   String?
+  amount          Float
+  currency        String            @default("USD")
+  provider        PaymentProvider
+  status          TransactionStatus @default(PENDING)
+  externalId      String?
+  metadata        Json?
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  seller      User         @relation(fields: [sellerId], references: [id])
+  client      Client       @relation(fields: [clientId], references: [id])
+  paymentLink PaymentLink? @relation(fields: [paymentLinkId], references: [id])
+
+  @@index([sellerId])
+  @@index([clientId])
+  @@index([status])
+  @@index([createdAt])
+  @@map("transactions")
+}
+
+model ActivityLog {
+  id          String       @id @default(cuid())
+  userId      String
+  type        ActivityType
+  description String
+  metadata    Json?
+  ipAddress   String?
+  userAgent   String?
+  createdAt   DateTime     @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([type])
+  @@index([createdAt])
+  @@map("activity_logs")
+}
+
+model Notification {
+  id        String           @id @default(cuid())
+  userId    String
+  type      NotificationType
+  title     String
+  message   String
+  read      Boolean          @default(false)
+  metadata  Json?
+  createdAt DateTime         @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, read])
+  @@index([createdAt])
+  @@map("notifications")
+}
+
+model WebhookLog {
+  id        String   @id @default(cuid())
+  provider  String
+  event     String
+  payload   Json
+  processed Boolean  @default(false)
+  error     String?
+  createdAt DateTime @default(now())
+
+  @@index([provider, event])
+  @@map("webhook_logs")
+}
