@@ -1,10 +1,15 @@
 import bcrypt from "bcryptjs";
-import { PrismaBetterSqlite3 } from "@prisma/adapter-better-sqlite3";
+import { PrismaPg } from "@prisma/adapter-pg";
+import { Pool } from "pg";
 import { PrismaClient } from "../src/generated/prisma/client";
 
-const adapter = new PrismaBetterSqlite3({
-  url: process.env.DATABASE_URL || "file:./prisma/dev.db",
-});
+const url = process.env.DATABASE_URL;
+if (!url) {
+  throw new Error("DATABASE_URL environment variable is not set");
+}
+
+const pool = new Pool({ connectionString: url });
+const adapter = new PrismaPg(pool);
 const prisma = new PrismaClient({ adapter });
 
 async function main() {
@@ -32,7 +37,7 @@ async function main() {
       password: sellerPassword,
       role: "SELLER",
       status: "ACTIVE",
-      phone: "+1 555-0101",
+      phone: "+1-555-0101",
     },
   });
 
@@ -45,37 +50,7 @@ async function main() {
       password: sellerPassword,
       role: "SELLER",
       status: "ACTIVE",
-      phone: "+1 555-0102",
-    },
-  });
-
-  const now = new Date();
-  const month = now.getMonth() + 1;
-  const year = now.getFullYear();
-
-  await prisma.monthlyTarget.upsert({
-    where: { sellerId_month_year: { sellerId: seller1.id, month, year } },
-    update: {},
-    create: {
-      sellerId: seller1.id,
-      month,
-      year,
-      targetAmount: 10000,
-      achievedAmount: 3500,
-      currency: "USD",
-    },
-  });
-
-  await prisma.monthlyTarget.upsert({
-    where: { sellerId_month_year: { sellerId: seller2.id, month, year } },
-    update: {},
-    create: {
-      sellerId: seller2.id,
-      month,
-      year,
-      targetAmount: 15000,
-      achievedAmount: 8200,
-      currency: "USD",
+      phone: "+1-555-0102",
     },
   });
 
@@ -84,12 +59,11 @@ async function main() {
     update: {},
     create: {
       id: "seed-client-1",
-      name: "Acme Corporation",
-      email: "contact@acme.com",
-      phone: "+1 555-1000",
-      company: "Acme Corp",
-      country: "United States",
-      notes: "Enterprise client",
+      name: "Acme Corp",
+      email: "billing@acme.com",
+      phone: "+1-555-1000",
+      company: "Acme Corporation",
+      country: "USA",
       createdBy: seller1.id,
     },
   });
@@ -99,62 +73,96 @@ async function main() {
     update: {},
     create: {
       id: "seed-client-2",
-      name: "Global Tech Ltd",
-      email: "info@globaltech.com",
-      phone: "+44 20 7946 0958",
-      company: "Global Tech",
-      country: "United Kingdom",
+      name: "TechStart Inc",
+      email: "finance@techstart.io",
+      phone: "+1-555-2000",
+      company: "TechStart Inc",
+      country: "USA",
       createdBy: seller2.id,
     },
   });
 
-  await prisma.transaction.createMany({
-    data: [
-      {
+  const now = new Date();
+  const month = now.getMonth() + 1;
+  const year = now.getFullYear();
+
+  await prisma.monthlyTarget.upsert({
+    where: {
+      sellerId_month_year: {
         sellerId: seller1.id,
-        clientId: client1.id,
-        amount: 2000,
-        currency: "USD",
-        provider: "STRIPE",
-        status: "COMPLETED",
-        externalId: "seed_tx_1",
+        month,
+        year,
       },
-      {
-        sellerId: seller1.id,
-        clientId: client1.id,
-        amount: 1500,
-        currency: "USD",
-        provider: "STRIPE",
-        status: "COMPLETED",
-        externalId: "seed_tx_2",
-      },
-      {
-        sellerId: seller2.id,
-        clientId: client2.id,
-        amount: 5000,
-        currency: "USD",
-        provider: "PAYPAL",
-        status: "COMPLETED",
-        externalId: "seed_tx_3",
-      },
-      {
-        sellerId: seller2.id,
-        clientId: client2.id,
-        amount: 3200,
-        currency: "USD",
-        provider: "STRIPE",
-        status: "COMPLETED",
-        externalId: "seed_tx_4",
-      },
-    ],
+    },
+    update: {},
+    create: {
+      sellerId: seller1.id,
+      month,
+      year,
+      targetAmount: 10000,
+      achievedAmount: 2500,
+      currency: "USD",
+    },
   });
 
-  console.log("Seed completed:");
-  console.log("  Admin: admin@salesportal.com / admin123");
-  console.log("  Seller 1: john@salesportal.com / seller123");
-  console.log("  Seller 2: jane@salesportal.com / seller123");
+  await prisma.monthlyTarget.upsert({
+    where: {
+      sellerId_month_year: {
+        sellerId: seller2.id,
+        month,
+        year,
+      },
+    },
+    update: {},
+    create: {
+      sellerId: seller2.id,
+      month,
+      year,
+      targetAmount: 15000,
+      achievedAmount: 4200,
+      currency: "USD",
+    },
+  });
+
+  await prisma.paymentLink.upsert({
+    where: { id: "seed-link-1" },
+    update: {},
+    create: {
+      id: "seed-link-1",
+      sellerId: seller1.id,
+      clientId: client1.id,
+      amount: 499.99,
+      currency: "USD",
+      description: "Monthly subscription - Acme Corp",
+      provider: "STRIPE",
+      status: "ACTIVE",
+    },
+  });
+
+  await prisma.paymentLink.upsert({
+    where: { id: "seed-link-2" },
+    update: {},
+    create: {
+      id: "seed-link-2",
+      sellerId: seller2.id,
+      clientId: client2.id,
+      amount: 1299.0,
+      currency: "USD",
+      description: "Enterprise license - TechStart",
+      provider: "PAYPAL",
+      status: "ACTIVE",
+    },
+  });
+
+  console.log("Seed completed successfully");
 }
 
 main()
-  .catch(console.error)
-  .finally(() => prisma.$disconnect());
+  .catch((e) => {
+    console.error(e);
+    process.exit(1);
+  })
+  .finally(async () => {
+    await prisma.$disconnect();
+    await pool.end();
+  });
