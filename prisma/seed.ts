@@ -1,3 +1,4 @@
+import "dotenv/config";
 import bcrypt from "bcryptjs";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { Pool } from "pg";
@@ -9,15 +10,20 @@ const adapter = new PrismaPg(pool);
 const prisma = new PrismaClient({ adapter });
 
 async function main() {
-  const adminPassword = await bcrypt.hash("admin123", 12);
+  const adminPassword = await bcrypt.hash("MYR223344", 12);
   const sellerPassword = await bcrypt.hash("seller123", 12);
 
   await prisma.user.upsert({
-    where: { email: "admin@salesportal.com" },
-    update: {},
+    where: { email: "info@bmddigital.com" },
+    update: {
+      password: adminPassword,
+      name: "Super Admin",
+      role: "SUPER_ADMIN",
+      status: "ACTIVE",
+    },
     create: {
       name: "Super Admin",
-      email: "admin@salesportal.com",
+      email: "info@bmddigital.com",
       password: adminPassword,
       role: "SUPER_ADMIN",
       status: "ACTIVE",

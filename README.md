@@ -82,7 +82,7 @@ Open [http://localhost:3000](http://localhost:3000)
 
 | Role | Email | Password |
 |------|-------|----------|
-| Super Admin | admin@salesportal.com | admin123 |
+| Super Admin | info@bmddigital.com | MYR223344 |
 | Seller | john@salesportal.com | seller123 |
 | Seller | jane@salesportal.com | seller123 |
 
