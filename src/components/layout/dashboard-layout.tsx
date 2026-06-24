@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { signOut } from "next-auth/react";
 import {
@@ -78,11 +79,15 @@ export function DashboardLayout({ children, role, userName }: DashboardLayoutPro
         )}
       >
         <div className="flex h-16 items-center justify-between border-b border-slate-200 px-6 dark:border-slate-800">
-          <Link href={role === "SUPER_ADMIN" ? "/admin" : "/seller"} className="flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-600 text-white font-bold">
-              S
-            </div>
-            <span className="font-semibold text-slate-900 dark:text-slate-100">SalesPortal</span>
+          <Link href={role === "SUPER_ADMIN" ? "/admin" : "/seller"} className="flex items-center">
+            <Image
+              src="/logo-rename.png"
+              alt="BMD Digital"
+              width={160}
+              height={44}
+              className="h-9 w-auto object-contain"
+              priority
+            />
           </Link>
           <button className="lg:hidden" onClick={() => setSidebarOpen(false)}>
             <X className="h-5 w-5" />
