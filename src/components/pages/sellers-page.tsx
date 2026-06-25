@@ -5,7 +5,7 @@ import { Plus, Search, Pencil, Trash2, Ban } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input, Select } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
-import { Modal, Badge, Pagination, LoadingSpinner, EmptyState } from "@/components/ui/modal";
+import { Modal, ModalFooter, ModalForm, Badge, Pagination, LoadingSpinner, EmptyState } from "@/components/ui/modal";
 import { toast } from "sonner";
 import { formatDate } from "@/lib/utils";
 
@@ -191,28 +191,46 @@ export function SellersPage() {
         </Card>
       )}
 
-      <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={editSeller ? "Edit Seller" : "Create Seller"}>
-        <form onSubmit={handleSubmit} className="space-y-4">
+      <Modal
+        open={modalOpen}
+        onClose={() => setModalOpen(false)}
+        title={editSeller ? "Edit Seller" : "Create Seller"}
+        description={editSeller ? "Update seller account details." : "Add a new seller to the platform."}
+      >
+        <ModalForm onSubmit={handleSubmit}>
           <Input label="Name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
           <Input label="Email" type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} required disabled={!!editSeller} />
           <Input label={editSeller ? "New Password (optional)" : "Password"} type="password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} required={!editSeller} />
-          <Input label="Phone" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
-          <div className="flex justify-end gap-2">
-            <Button variant="secondary" type="button" onClick={() => setModalOpen(false)}>Cancel</Button>
-            <Button type="submit">{editSeller ? "Update" : "Create"}</Button>
-          </div>
-        </form>
+          <Input label="Phone" type="tel" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
+          <ModalFooter>
+            <Button variant="secondary" type="button" className="w-full sm:w-auto" onClick={() => setModalOpen(false)}>
+              Cancel
+            </Button>
+            <Button type="submit" className="w-full sm:w-auto">
+              {editSeller ? "Update Seller" : "Create Seller"}
+            </Button>
+          </ModalFooter>
+        </ModalForm>
       </Modal>
 
-      <Modal open={targetModal} onClose={() => setTargetModal(false)} title={`Assign Target - ${selectedSeller?.name}`}>
-        <form onSubmit={handleAssignTarget} className="space-y-4">
-          <Input label="Target Amount" type="number" step="0.01" value={targetForm.targetAmount} onChange={(e) => setTargetForm({ ...targetForm, targetAmount: e.target.value })} required />
+      <Modal
+        open={targetModal}
+        onClose={() => setTargetModal(false)}
+        title={`Assign Target${selectedSeller ? ` — ${selectedSeller.name}` : ""}`}
+        description="Set a monthly sales target for this seller."
+      >
+        <ModalForm onSubmit={handleAssignTarget}>
+          <Input label="Target Amount" type="number" step="0.01" min="0" value={targetForm.targetAmount} onChange={(e) => setTargetForm({ ...targetForm, targetAmount: e.target.value })} required />
           <Select label="Currency" options={[{ value: "USD", label: "USD" }, { value: "EUR", label: "EUR" }, { value: "GBP", label: "GBP" }]} value={targetForm.currency} onChange={(e) => setTargetForm({ ...targetForm, currency: e.target.value })} />
-          <div className="flex justify-end gap-2">
-            <Button variant="secondary" type="button" onClick={() => setTargetModal(false)}>Cancel</Button>
-            <Button type="submit">Assign Target</Button>
-          </div>
-        </form>
+          <ModalFooter>
+            <Button variant="secondary" type="button" className="w-full sm:w-auto" onClick={() => setTargetModal(false)}>
+              Cancel
+            </Button>
+            <Button type="submit" className="w-full sm:w-auto">
+              Assign Target
+            </Button>
+          </ModalFooter>
+        </ModalForm>
       </Modal>
     </div>
   );

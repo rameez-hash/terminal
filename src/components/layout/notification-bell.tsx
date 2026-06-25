@@ -69,20 +69,20 @@ export function NotificationBell() {
 
       {open && (
         <>
-          <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
-          <div className="absolute right-0 z-50 mt-2 w-80 rounded-xl border border-slate-200 bg-white shadow-xl dark:border-slate-700 dark:bg-slate-900">
+          <div className="fixed inset-0 z-40 bg-black/20 sm:bg-transparent" onClick={() => setOpen(false)} />
+          <div className="fixed inset-x-3 top-16 z-50 max-h-[70dvh] overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl dark:border-slate-700 dark:bg-slate-900 sm:absolute sm:inset-x-auto sm:right-0 sm:top-full sm:mt-2 sm:w-80 sm:max-h-96">
             <div className="flex items-center justify-between border-b border-slate-200 p-4 dark:border-slate-700">
               <h3 className="font-semibold text-slate-900 dark:text-slate-100">Notifications</h3>
               {unreadCount > 0 && (
                 <button
                   onClick={markAllRead}
-                  className="text-xs text-indigo-600 hover:text-indigo-700"
+                  className="rounded-md px-2 py-1 text-xs text-indigo-600 hover:bg-indigo-50 hover:text-indigo-700 dark:hover:bg-indigo-950"
                 >
                   Mark all read
                 </button>
               )}
             </div>
-            <div className="max-h-96 overflow-y-auto">
+            <div className="max-h-[calc(70dvh-4rem)] overflow-y-auto overscroll-contain sm:max-h-80">
               {notifications.length === 0 ? (
                 <p className="p-4 text-center text-sm text-slate-500">No notifications</p>
               ) : (

@@ -5,7 +5,7 @@ import { Plus, Search, Pencil, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input, Select, Textarea } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
-import { Modal, Badge, Pagination, LoadingSpinner, EmptyState } from "@/components/ui/modal";
+import { Modal, ModalFooter, ModalForm, Badge, Pagination, LoadingSpinner, EmptyState } from "@/components/ui/modal";
 import { toast } from "sonner";
 import { formatCurrency, formatDate } from "@/lib/utils";
 
@@ -156,21 +156,31 @@ export function ClientsPage({ canEditAll, userId }: ClientsPageProps) {
         </Card>
       )}
 
-      <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={editClient ? "Edit Client" : "Create Client"} size="lg">
-        <form onSubmit={handleSubmit} className="space-y-4">
+      <Modal
+        open={modalOpen}
+        onClose={() => setModalOpen(false)}
+        title={editClient ? "Edit Client" : "Create Client"}
+        description={editClient ? "Update client details below." : "Add a new client to your account."}
+        size="lg"
+      >
+        <ModalForm onSubmit={handleSubmit}>
           <div className="grid gap-4 sm:grid-cols-2">
             <Input label="Name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
             <Input label="Email" type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} required />
-            <Input label="Phone" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
+            <Input label="Phone" type="tel" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
             <Input label="Company" value={form.company} onChange={(e) => setForm({ ...form, company: e.target.value })} />
-            <Input label="Country" value={form.country} onChange={(e) => setForm({ ...form, country: e.target.value })} />
+            <Input label="Country" value={form.country} onChange={(e) => setForm({ ...form, country: e.target.value })} className="sm:col-span-2" />
           </div>
           <Textarea label="Notes" value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
-          <div className="flex justify-end gap-2">
-            <Button variant="secondary" type="button" onClick={() => setModalOpen(false)}>Cancel</Button>
-            <Button type="submit">{editClient ? "Update" : "Create"}</Button>
-          </div>
-        </form>
+          <ModalFooter>
+            <Button variant="secondary" type="button" className="w-full sm:w-auto" onClick={() => setModalOpen(false)}>
+              Cancel
+            </Button>
+            <Button type="submit" className="w-full sm:w-auto">
+              {editClient ? "Update Client" : "Create Client"}
+            </Button>
+          </ModalFooter>
+        </ModalForm>
       </Modal>
     </div>
   );

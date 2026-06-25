@@ -5,7 +5,7 @@ import { Plus, Search, ExternalLink, Copy } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input, Select } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
-import { Modal, Badge, Pagination, LoadingSpinner, EmptyState } from "@/components/ui/modal";
+import { Modal, ModalFooter, ModalForm, Badge, Pagination, LoadingSpinner, EmptyState } from "@/components/ui/modal";
 import { toast } from "sonner";
 import { formatCurrency, formatDate } from "@/lib/utils";
 
@@ -240,15 +240,21 @@ export function PaymentLinksPage({ isAdmin }: { isAdmin?: boolean }) {
         </Card>
       )}
 
-      <Modal open={modalOpen} onClose={() => { setModalOpen(false); resetModal(); }} title="Create Payment Link">
-        <form onSubmit={handleSubmit} className="space-y-4">
+      <Modal
+        open={modalOpen}
+        onClose={() => { setModalOpen(false); resetModal(); }}
+        title="Create Payment Link"
+        description="Select an existing client or add a new one, then generate a payment link."
+        size="lg"
+      >
+        <ModalForm onSubmit={handleSubmit}>
           <div className="space-y-2">
             <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Client</label>
-            <div className="flex rounded-lg border border-slate-200 p-1 dark:border-slate-700">
+            <div className="flex flex-col gap-1 rounded-lg border border-slate-200 p-1 sm:flex-row dark:border-slate-700">
               <button
                 type="button"
                 onClick={() => setClientMode("existing")}
-                className={`flex-1 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
+                className={`flex-1 rounded-md px-3 py-2.5 text-sm font-medium transition-colors sm:py-2 ${
                   clientMode === "existing"
                     ? "bg-blue-600 text-white"
                     : "text-slate-600 hover:bg-slate-50 dark:text-slate-400 dark:hover:bg-slate-800"
@@ -259,7 +265,7 @@ export function PaymentLinksPage({ isAdmin }: { isAdmin?: boolean }) {
               <button
                 type="button"
                 onClick={() => setClientMode("new")}
-                className={`flex-1 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
+                className={`flex-1 rounded-md px-3 py-2.5 text-sm font-medium transition-colors sm:py-2 ${
                   clientMode === "new"
                     ? "bg-blue-600 text-white"
                     : "text-slate-600 hover:bg-slate-50 dark:text-slate-400 dark:hover:bg-slate-800"
@@ -276,7 +282,7 @@ export function PaymentLinksPage({ isAdmin }: { isAdmin?: boolean }) {
               options={[{ value: "", label: "Select client..." }, ...clients.map((c) => ({ value: c.id, label: c.name }))]}
               value={form.clientId}
               onChange={(e) => setForm({ ...form, clientId: e.target.value })}
-              required
+              required={clientMode === "existing"}
             />
           ) : (
             <div className="space-y-3 rounded-lg border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-800/50">
@@ -284,7 +290,7 @@ export function PaymentLinksPage({ isAdmin }: { isAdmin?: boolean }) {
                 label="Client Name"
                 value={newClient.name}
                 onChange={(e) => setNewClient({ ...newClient, name: e.target.value })}
-                required
+                required={clientMode === "new"}
               />
               <Input
                 label="Email"
@@ -292,7 +298,7 @@ export function PaymentLinksPage({ isAdmin }: { isAdmin?: boolean }) {
                 placeholder="client@company.com"
                 value={newClient.email}
                 onChange={(e) => setNewClient({ ...newClient, email: e.target.value })}
-                required
+                required={clientMode === "new"}
               />
               <Input
                 label="Phone"
@@ -304,25 +310,33 @@ export function PaymentLinksPage({ isAdmin }: { isAdmin?: boolean }) {
               <p className="text-xs text-slate-500">Email and phone must be unique across all clients.</p>
             </div>
           )}
-          <Input label="Amount" type="number" step="0.01" value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} required />
-          <Select
-            label="Currency"
-            options={[{ value: "USD", label: "USD" }, { value: "EUR", label: "EUR" }, { value: "GBP", label: "GBP" }]}
-            value={form.currency}
-            onChange={(e) => setForm({ ...form, currency: e.target.value })}
-          />
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Input label="Amount" type="number" step="0.01" min="0" value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} required />
+            <Select
+              label="Currency"
+              options={[{ value: "USD", label: "USD" }, { value: "EUR", label: "EUR" }, { value: "GBP", label: "GBP" }]}
+              value={form.currency}
+              onChange={(e) => setForm({ ...form, currency: e.target.value })}
+            />
+          </div>
           <Select
             label="Payment Provider"
             options={[{ value: "STRIPE", label: "Stripe" }, { value: "PAYPAL", label: "PayPal" }]}
             value={form.provider}
             onChange={(e) => setForm({ ...form, provider: e.target.value })}
           />
-          <Input label="Description" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
-          <div className="flex justify-end gap-2">
-            <Button variant="secondary" type="button" onClick={() => { setModalOpen(false); resetModal(); }}>Cancel</Button>
-            <Button type="submit" loading={submitting}>Create Link</Button>
-          </div>
-        </form>
+          <Input label="Description (optional)" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="What is this payment for?" />
+
+          <ModalFooter>
+            <Button variant="secondary" type="button" className="w-full sm:w-auto" onClick={() => { setModalOpen(false); resetModal(); }}>
+              Cancel
+            </Button>
+            <Button type="submit" loading={submitting} className="w-full sm:w-auto">
+              Create Link
+            </Button>
+          </ModalFooter>
+        </ModalForm>
       </Modal>
     </div>
   );
