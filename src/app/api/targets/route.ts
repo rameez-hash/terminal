@@ -4,7 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { requireAdmin, requireAuth } from "@/lib/auth";
 import { logActivity } from "@/lib/activity";
 import { createNotification } from "@/lib/notifications";
-import { parsePaginationParams, paginatedResponse } from "@/lib/utils";
+import { parsePaginationParams, paginatedResponse, getCurrentMonthYear } from "@/lib/utils";
 
 const createTargetSchema = z.object({
   sellerId: z.string(),
@@ -22,6 +22,83 @@ export async function GET(request: Request) {
     const sellerId = searchParams.get("sellerId");
     const month = searchParams.get("month");
     const year = searchParams.get("year");
+    const summary = searchParams.get("summary") === "true";
+
+    if (user.role === "SUPER_ADMIN" && summary) {
+      const { month: currentMonth, year: currentYear } = getCurrentMonthYear();
+      const selectedMonth = month ? parseInt(month, 10) : currentMonth;
+      const selectedYear = year ? parseInt(year, 10) : currentYear;
+      const sellerFilter = sellerId || undefined;
+
+      const monthStart = new Date(selectedYear, selectedMonth - 1, 1);
+      const monthEnd = new Date(selectedYear, selectedMonth, 0, 23, 59, 59, 999);
+
+      const [sellers, targets, transactions] = await Promise.all([
+        prisma.user.findMany({
+          where: {
+            role: "SELLER",
+            ...(sellerFilter ? { id: sellerFilter } : {}),
+          },
+          select: { id: true, name: true, email: true, status: true },
+          orderBy: { name: "asc" },
+        }),
+        prisma.monthlyTarget.findMany({
+          where: {
+            month: selectedMonth,
+            year: selectedYear,
+            ...(sellerFilter ? { sellerId: sellerFilter } : {}),
+          },
+        }),
+        prisma.transaction.groupBy({
+          by: ["sellerId"],
+          where: {
+            status: "COMPLETED",
+            createdAt: { gte: monthStart, lte: monthEnd },
+            ...(sellerFilter ? { sellerId: sellerFilter } : {}),
+          },
+          _sum: { amount: true },
+        }),
+      ]);
+
+      const targetBySeller = new Map(targets.map((t) => [t.sellerId, t]));
+      const revenueBySeller = new Map(
+        transactions.map((t) => [t.sellerId, t._sum.amount || 0])
+      );
+
+      const rows = sellers.map((seller) => {
+        const target = targetBySeller.get(seller.id);
+        const achievedAmount = target?.achievedAmount ?? revenueBySeller.get(seller.id) ?? 0;
+        const targetAmount = target?.targetAmount ?? 0;
+        const currency = target?.currency ?? "USD";
+
+        return {
+          id: target?.id ?? `summary-${seller.id}-${selectedMonth}-${selectedYear}`,
+          sellerId: seller.id,
+          seller,
+          month: selectedMonth,
+          year: selectedYear,
+          targetAmount,
+          achievedAmount,
+          currency,
+          hasTarget: !!target,
+          completionPercentage:
+            targetAmount > 0 ? Math.min(100, Math.round((achievedAmount / targetAmount) * 100)) : 0,
+          remainingAmount: Math.max(0, targetAmount - achievedAmount),
+          status:
+            targetAmount <= 0
+              ? "NO_TARGET"
+              : achievedAmount >= targetAmount
+                ? "COMPLETED"
+                : "IN_PROGRESS",
+        };
+      });
+
+      return NextResponse.json({
+        data: rows,
+        filters: { month: selectedMonth, year: selectedYear, sellerId: sellerFilter ?? null },
+        pagination: { page: 1, limit: rows.length, total: rows.length, totalPages: 1 },
+      });
+    }
 
     const where = {
       ...(user.role === "SELLER" ? { sellerId: user.id } : sellerId ? { sellerId } : {}),

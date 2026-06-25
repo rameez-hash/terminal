@@ -14,7 +14,7 @@ import {
 import { StatCard, Card, CardHeader, CardTitle } from "@/components/ui/card";
 import { LoadingSpinner } from "@/components/ui/modal";
 import { RevenueLineChart, RevenueBarChart, ProviderPieChart } from "@/components/charts";
-import { formatCurrency } from "@/lib/utils";
+import { formatCurrency, formatMonthYear, getCurrentMonthYear } from "@/lib/utils";
 
 interface AnalyticsData {
   stats: {
@@ -27,11 +27,24 @@ interface AnalyticsData {
     pendingTargets: number;
   };
   currentTarget: {
+    month: number;
+    year: number;
     targetAmount: number;
     achievedAmount: number;
     completionPercentage: number;
     remainingAmount: number;
+    currency?: string;
   } | null;
+  monthlyTargetHistory?: Array<{
+    id: string;
+    month: number;
+    year: number;
+    targetAmount: number;
+    achievedAmount: number;
+    completionPercentage: number;
+    remainingAmount: number;
+    currency: string;
+  }>;
   topPerformingSellers: Array<{ id: string; name: string; revenue: number; transactionCount: number }>;
   revenueByProvider: Array<{ provider: string; revenue: number }>;
   monthlySales: Array<{ month: string; revenue: number }>;
@@ -55,8 +68,9 @@ export function DashboardContent({ role }: DashboardContentProps) {
   if (loading) return <LoadingSpinner />;
   if (!data) return <p>Failed to load dashboard data</p>;
 
-  const { stats, currentTarget, topPerformingSellers, revenueByProvider, monthlySales } = data;
+  const { stats, currentTarget, monthlyTargetHistory, topPerformingSellers, revenueByProvider, monthlySales } = data;
   const isAdmin = role === "SUPER_ADMIN";
+  const { month: currentMonth, year: currentYear } = getCurrentMonthYear();
 
   return (
     <div className="space-y-6">
@@ -110,29 +124,31 @@ export function DashboardContent({ role }: DashboardContentProps) {
       {!isAdmin && currentTarget && (
         <Card>
           <CardHeader>
-            <CardTitle>Monthly Target Progress</CardTitle>
+            <CardTitle>
+              Monthly Target — {formatMonthYear(currentTarget.month ?? currentMonth, currentTarget.year ?? currentYear)}
+            </CardTitle>
           </CardHeader>
           <div className="grid gap-6 md:grid-cols-3">
             <div>
               <p className="text-sm text-slate-500">Target Amount</p>
-              <p className="text-2xl font-bold">{formatCurrency(currentTarget.targetAmount)}</p>
+              <p className="text-2xl font-bold">{formatCurrency(currentTarget.targetAmount, currentTarget.currency)}</p>
             </div>
             <div>
-              <p className="text-sm text-slate-500">Achieved</p>
+              <p className="text-sm text-slate-500">Achieved This Month</p>
               <p className="text-2xl font-bold text-green-600">
-                {formatCurrency(currentTarget.achievedAmount)}
+                {formatCurrency(currentTarget.achievedAmount, currentTarget.currency)}
               </p>
             </div>
             <div>
               <p className="text-sm text-slate-500">Remaining</p>
               <p className="text-2xl font-bold text-orange-600">
-                {formatCurrency(currentTarget.remainingAmount)}
+                {formatCurrency(currentTarget.remainingAmount, currentTarget.currency)}
               </p>
             </div>
             <div className="md:col-span-3">
               <div className="h-4 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700">
                 <div
-                  className="h-full rounded-full bg-indigo-600 transition-all"
+                  className={`h-full rounded-full transition-all ${currentTarget.completionPercentage >= 100 ? "bg-green-600" : "bg-indigo-600"}`}
                   style={{ width: `${currentTarget.completionPercentage}%` }}
                 />
               </div>
@@ -140,6 +156,53 @@ export function DashboardContent({ role }: DashboardContentProps) {
                 {currentTarget.completionPercentage}% complete
               </p>
             </div>
+          </div>
+        </Card>
+      )}
+
+      {!isAdmin && monthlyTargetHistory && monthlyTargetHistory.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Monthly Achievement History</CardTitle>
+          </CardHeader>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-slate-200 text-left text-slate-500 dark:border-slate-700">
+                  <th className="pb-3 pr-4 font-medium">Month</th>
+                  <th className="pb-3 pr-4 font-medium">Target</th>
+                  <th className="pb-3 pr-4 font-medium">Achieved</th>
+                  <th className="pb-3 font-medium">Progress</th>
+                </tr>
+              </thead>
+              <tbody>
+                {monthlyTargetHistory.map((row) => (
+                  <tr
+                    key={row.id}
+                    className={`border-b border-slate-100 dark:border-slate-800 ${
+                      row.month === currentMonth && row.year === currentYear
+                        ? "bg-indigo-50/50 dark:bg-indigo-950/20"
+                        : ""
+                    }`}
+                  >
+                    <td className="py-3 pr-4 font-medium">{formatMonthYear(row.month, row.year)}</td>
+                    <td className="py-3 pr-4">{formatCurrency(row.targetAmount, row.currency)}</td>
+                    <td className="py-3 pr-4 text-green-600">{formatCurrency(row.achievedAmount, row.currency)}</td>
+                    <td className="py-3">
+                      <div className="flex items-center gap-2">
+                        <div className="h-2 w-24 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700">
+                          <div
+                            className={`h-full rounded-full ${row.completionPercentage >= 100 ? "bg-green-600" : "bg-indigo-600"}`}
+                            style={{ width: `${Math.min(100, row.completionPercentage)}%` }}
+                          />
+                        </div>
+                        <span className="text-xs font-medium">{row.completionPercentage}%</span>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         </Card>
       )}

@@ -50,6 +50,28 @@ export function getCurrentMonthYear() {
   return { month: now.getMonth() + 1, year: now.getFullYear() };
 }
 
+export function formatMonthYear(month: number, year: number) {
+  return new Intl.DateTimeFormat("en-US", {
+    month: "long",
+    year: "numeric",
+  }).format(new Date(year, month - 1, 1));
+}
+
+export function getMonthOptions() {
+  return Array.from({ length: 12 }, (_, i) => ({
+    value: String(i + 1),
+    label: new Intl.DateTimeFormat("en-US", { month: "long" }).format(new Date(2024, i, 1)),
+  }));
+}
+
+export function getYearOptions(yearsBack = 3) {
+  const currentYear = new Date().getFullYear();
+  return Array.from({ length: yearsBack + 1 }, (_, i) => {
+    const year = currentYear - i;
+    return { value: String(year), label: String(year) };
+  });
+}
+
 export function parsePaginationParams(searchParams: URLSearchParams) {
   const page = Math.max(1, parseInt(searchParams.get("page") || "1", 10));
   const limit = Math.min(100, Math.max(1, parseInt(searchParams.get("limit") || "10", 10)));

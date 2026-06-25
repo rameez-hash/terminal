@@ -22,6 +22,7 @@ export async function GET(request: Request) {
       monthlyRevenueResult,
       activePaymentLinks,
       targets,
+      targetHistory,
       topSellers,
       monthlySales,
       revenueByProvider,
@@ -52,6 +53,13 @@ export async function GET(request: Request) {
         },
         include: { seller: { select: { id: true, name: true } } },
       }),
+      !isAdmin
+        ? prisma.monthlyTarget.findMany({
+            where: { sellerId: user.id },
+            orderBy: [{ year: "desc" }, { month: "desc" }],
+            take: 12,
+          })
+        : Promise.resolve([]),
       isAdmin
         ? prisma.transaction.groupBy({
             by: ["sellerId"],
@@ -164,6 +172,16 @@ export async function GET(request: Request) {
             ),
           }
         : null,
+      monthlyTargetHistory: targetHistory.map((t) => ({
+        id: t.id,
+        month: t.month,
+        year: t.year,
+        targetAmount: t.targetAmount,
+        achievedAmount: t.achievedAmount,
+        currency: t.currency,
+        completionPercentage: getCompletionPercentage(t.achievedAmount, t.targetAmount),
+        remainingAmount: Math.max(0, t.targetAmount - t.achievedAmount),
+      })),
       topPerformingSellers,
       sellerPerformance,
       revenueByProvider: revenueByProvider.map((r) => ({

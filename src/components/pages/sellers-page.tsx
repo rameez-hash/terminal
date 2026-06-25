@@ -7,7 +7,7 @@ import { Input, Select } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { Modal, ModalFooter, ModalForm, Badge, Pagination, LoadingSpinner, EmptyState } from "@/components/ui/modal";
 import { toast } from "sonner";
-import { formatDate } from "@/lib/utils";
+import { formatDate, getCurrentMonthYear, getMonthOptions, getYearOptions } from "@/lib/utils";
 
 interface Seller {
   id: string;
@@ -30,7 +30,13 @@ export function SellersPage() {
   const [targetModal, setTargetModal] = useState(false);
   const [selectedSeller, setSelectedSeller] = useState<Seller | null>(null);
   const [form, setForm] = useState({ name: "", email: "", password: "", phone: "" });
-  const [targetForm, setTargetForm] = useState({ targetAmount: "", currency: "USD" });
+  const { month: currentMonth, year: currentYear } = getCurrentMonthYear();
+  const [targetForm, setTargetForm] = useState({
+    targetAmount: "",
+    currency: "USD",
+    month: String(currentMonth),
+    year: String(currentYear),
+  });
 
   const fetchSellers = useCallback(async () => {
     setLoading(true);
@@ -92,14 +98,13 @@ export function SellersPage() {
   const handleAssignTarget = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedSeller) return;
-    const now = new Date();
     const res = await fetch("/api/targets", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         sellerId: selectedSeller.id,
-        month: now.getMonth() + 1,
-        year: now.getFullYear(),
+        month: parseInt(targetForm.month, 10),
+        year: parseInt(targetForm.year, 10),
         targetAmount: parseFloat(targetForm.targetAmount),
         currency: targetForm.currency,
       }),
@@ -111,7 +116,12 @@ export function SellersPage() {
     }
     toast.success("Target assigned");
     setTargetModal(false);
-    setTargetForm({ targetAmount: "", currency: "USD" });
+    setTargetForm({
+      targetAmount: "",
+      currency: "USD",
+      month: String(currentMonth),
+      year: String(currentYear),
+    });
   };
 
   return (
@@ -220,6 +230,20 @@ export function SellersPage() {
         description="Set a monthly sales target for this seller."
       >
         <ModalForm onSubmit={handleAssignTarget}>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Select
+              label="Month"
+              value={targetForm.month}
+              onChange={(e) => setTargetForm({ ...targetForm, month: e.target.value })}
+              options={getMonthOptions()}
+            />
+            <Select
+              label="Year"
+              value={targetForm.year}
+              onChange={(e) => setTargetForm({ ...targetForm, year: e.target.value })}
+              options={getYearOptions()}
+            />
+          </div>
           <Input label="Target Amount" type="number" step="0.01" min="0" value={targetForm.targetAmount} onChange={(e) => setTargetForm({ ...targetForm, targetAmount: e.target.value })} required />
           <Select label="Currency" options={[{ value: "USD", label: "USD" }, { value: "EUR", label: "EUR" }, { value: "GBP", label: "GBP" }]} value={targetForm.currency} onChange={(e) => setTargetForm({ ...targetForm, currency: e.target.value })} />
           <ModalFooter>
