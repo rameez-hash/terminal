@@ -3,6 +3,12 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { requireAuth } from "@/lib/auth";
 import { logActivity } from "@/lib/activity";
+import {
+  duplicateClientMessage,
+  findClientDuplicate,
+  normalizeEmail,
+  normalizePhone,
+} from "@/lib/clients";
 
 const updateClientSchema = z.object({
   name: z.string().min(2).optional(),
@@ -61,9 +67,29 @@ export async function PATCH(
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
+    const nextEmail = data.email ? normalizeEmail(data.email) : client.email;
+    const nextPhone =
+      data.phone !== undefined
+        ? data.phone.trim()
+          ? normalizePhone(data.phone)
+          : null
+        : client.phone;
+
+    const duplicate = await findClientDuplicate(nextEmail, nextPhone, id);
+    if (duplicate) {
+      return NextResponse.json(
+        { error: duplicateClientMessage(duplicate.field) },
+        { status: 409 }
+      );
+    }
+
     const updated = await prisma.client.update({
       where: { id },
-      data,
+      data: {
+        ...data,
+        ...(data.email && { email: nextEmail }),
+        ...(data.phone !== undefined && { phone: nextPhone }),
+      },
       include: { creator: { select: { id: true, name: true, email: true } } },
     });
 

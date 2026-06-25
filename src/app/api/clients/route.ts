@@ -4,6 +4,12 @@ import { prisma } from "@/lib/prisma";
 import { auth, requireAuth } from "@/lib/auth";
 import { logActivity } from "@/lib/activity";
 import { parsePaginationParams, paginatedResponse } from "@/lib/utils";
+import {
+  duplicateClientMessage,
+  findClientDuplicate,
+  normalizeEmail,
+  normalizePhone,
+} from "@/lib/clients";
 
 const createClientSchema = z.object({
   name: z.string().min(2),
@@ -59,8 +65,21 @@ export async function POST(request: Request) {
     const body = await request.json();
     const data = createClientSchema.parse(body);
 
+    const duplicate = await findClientDuplicate(data.email, data.phone);
+    if (duplicate) {
+      return NextResponse.json(
+        { error: duplicateClientMessage(duplicate.field) },
+        { status: 409 }
+      );
+    }
+
     const client = await prisma.client.create({
-      data: { ...data, createdBy: user.id },
+      data: {
+        ...data,
+        email: normalizeEmail(data.email),
+        phone: data.phone?.trim() ? normalizePhone(data.phone) : undefined,
+        createdBy: user.id,
+      },
       include: { creator: { select: { id: true, name: true, email: true } } },
     });
 
