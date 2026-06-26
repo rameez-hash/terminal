@@ -4,13 +4,13 @@ import { useEffect, useState, Suspense } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Badge, LoadingSpinner } from "@/components/ui/modal";
+import { LoadingSpinner } from "@/components/ui/modal";
 import { StripePaymentForm } from "@/components/payment/stripe-payment-form";
 import { PayPalEmbeddedCheckout } from "@/components/payment/paypal-embedded-checkout";
 import { PaymentBrandHeader, resolveBrand } from "@/components/payment/payment-brand-header";
 import { formatCurrency } from "@/lib/utils";
 import { toast } from "sonner";
-import { CreditCard, CheckCircle, Loader2, ShieldCheck } from "lucide-react";
+import { CreditCard, CheckCircle, Loader2, Lock } from "lucide-react";
 
 interface PaymentLinkData {
   id: string;
@@ -130,7 +130,7 @@ function PayPageContent() {
 
   if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center">
+      <div className="flex min-h-screen items-center justify-center bg-slate-50">
         <Loader2 className="h-8 w-8 animate-spin text-indigo-600" />
       </div>
     );
@@ -138,7 +138,7 @@ function PayPageContent() {
 
   if (!link || "error" in link) {
     return (
-      <div className="flex min-h-screen items-center justify-center p-4">
+      <div className="flex min-h-screen items-center justify-center bg-slate-50 p-4">
         <Card className="max-w-md p-8 text-center">
           <p className="text-red-500">Payment link not found or expired</p>
         </Card>
@@ -151,13 +151,15 @@ function PayPageContent() {
 
   if (paid || link.status === "PAID") {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-slate-50 p-4 dark:bg-slate-950">
-        <Card className="w-full max-w-md p-8 text-center">
-          <PaymentBrandHeader brand={brand} />
-          <CheckCircle className="mx-auto mt-6 h-16 w-16 text-green-500" />
-          <h1 className="mt-4 text-2xl font-bold">Payment Successful!</h1>
-          <p className="mt-2 text-slate-500">
-            {formatCurrency(link.amount, link.currency)} paid to {brand.name}
+      <div className="flex min-h-screen items-center justify-center bg-slate-50 p-4">
+        <Card className="w-full max-w-md p-10 text-center shadow-lg">
+          <div className="mb-6 flex justify-center">
+            <PaymentBrandHeader brand={brand} logoOnly size={80} />
+          </div>
+          <CheckCircle className="mx-auto h-16 w-16 text-green-500" />
+          <h1 className="mt-4 text-2xl font-bold text-slate-900">Payment Successful!</h1>
+          <p className="mt-2 text-slate-600">
+            {formatCurrency(link.amount, link.currency)} paid successfully
           </p>
           <p className="mt-1 text-sm text-slate-400">Thank you for your payment</p>
         </Card>
@@ -169,100 +171,110 @@ function PayPageContent() {
     toast.error("Payment was cancelled");
   }
 
+  const paymentPanel = (
+    <>
+      {checkoutLoading ? (
+        <div className="flex min-h-[280px] items-center justify-center">
+          <Loader2 className="h-6 w-6 animate-spin text-indigo-600" />
+          <span className="ml-2 text-slate-500">Loading payment form...</span>
+        </div>
+      ) : checkoutError ? (
+        <div className="flex min-h-[280px] flex-col items-center justify-center p-6 text-center">
+          <p className="text-sm text-red-500">{checkoutError}</p>
+          <p className="mt-2 text-xs text-slate-500">Please refresh the page or contact support.</p>
+        </div>
+      ) : checkout?.mode === "stripe_payment" && checkout.clientSecret && checkout.publishableKey ? (
+        <StripePaymentForm
+          clientSecret={checkout.clientSecret}
+          publishableKey={checkout.publishableKey}
+          returnUrl={checkout.returnUrl || `${window.location.origin}/pay/${id}`}
+          onSuccess={() => setPaid(true)}
+        />
+      ) : checkout?.mode === "paypal_embedded" && checkout.clientId ? (
+        <PayPalEmbeddedCheckout
+          paymentLinkId={id}
+          clientId={checkout.clientId}
+          currency={checkout.currency || link.currency}
+          onSuccess={() => setPaid(true)}
+        />
+      ) : checkout?.mode === "demo" ? (
+        <div className="p-6">
+          <div className="mb-4 flex items-center gap-2 text-sm text-slate-500">
+            <CreditCard className="h-4 w-4" />
+            Demo payment — no real charge
+          </div>
+          <Button
+            className="w-full"
+            size="lg"
+            onClick={handleDemoPay}
+            loading={paying}
+            style={{ backgroundColor: accentColor }}
+          >
+            Pay {formatCurrency(link.amount, link.currency)}
+          </Button>
+        </div>
+      ) : null}
+    </>
+  );
+
   return (
-    <div className="min-h-screen bg-slate-50 py-8 px-4 dark:bg-slate-950">
-      <div className="mx-auto max-w-lg space-y-6">
-        <Card className="p-6">
-          <div className="mb-4 flex items-center justify-between">
-            <PaymentBrandHeader brand={brand} />
-            <div className="flex items-center gap-1 text-xs text-slate-400">
-              <ShieldCheck className="h-4 w-4" />
-              SSL Secured
-            </div>
-          </div>
+    <div className="min-h-screen bg-gradient-to-b from-slate-100 to-slate-50 py-8 px-4 sm:py-12">
+      <div className="mx-auto max-w-5xl">
+        <div className="mb-8 flex justify-center">
+          <PaymentBrandHeader brand={brand} logoOnly size={80} />
+        </div>
 
-          <div className="space-y-3 border-t border-slate-100 pt-4 dark:border-slate-800">
-            <div className="flex justify-between text-sm">
-              <span className="text-slate-500">Pay to</span>
-              <span className="font-medium">{brand.name}</span>
-            </div>
-            <div className="flex justify-between text-sm">
-              <span className="text-slate-500">Handled by</span>
-              <span className="font-medium">{link.seller.name}</span>
-            </div>
-            <div className="flex justify-between text-sm">
-              <span className="text-slate-500">Client</span>
-              <span className="font-medium">{link.client.name}</span>
-            </div>
-            {link.description && (
-              <div className="flex justify-between text-sm">
-                <span className="text-slate-500">For</span>
-                <span>{link.description}</span>
-              </div>
-            )}
-            <div
-              className="flex justify-between items-center rounded-lg p-3"
-              style={{ backgroundColor: `${accentColor}15` }}
-            >
-              <span className="text-sm text-slate-500">Total</span>
-              <span className="text-2xl font-bold" style={{ color: accentColor }}>
-                {formatCurrency(link.amount, link.currency)}
-              </span>
-            </div>
-            <div className="flex gap-2">
-              <Badge variant="info">{link.provider}</Badge>
-              {checkout?.mode === "demo" && <Badge variant="warning">DEMO</Badge>}
-            </div>
-          </div>
-        </Card>
+        <div className="grid gap-6 lg:grid-cols-2 lg:gap-8 lg:items-start">
+          <Card className="p-6 shadow-md lg:sticky lg:top-8">
+            <h2 className="text-lg font-semibold text-slate-900">Order Summary</h2>
+            <p className="mt-1 text-sm text-slate-500">Review your payment details</p>
 
-        <Card className="overflow-hidden p-0">
-          {checkoutLoading ? (
-            <div className="flex items-center justify-center p-8">
-              <Loader2 className="h-6 w-6 animate-spin text-indigo-600" />
-              <span className="ml-2 text-slate-500">Loading payment form...</span>
-            </div>
-          ) : checkoutError ? (
-            <div className="p-6 text-center">
-              <p className="text-sm text-red-500">{checkoutError}</p>
-              <p className="mt-2 text-xs text-slate-500">Please refresh the page or contact support.</p>
-            </div>
-          ) : checkout?.mode === "stripe_payment" && checkout.clientSecret && checkout.publishableKey ? (
-            <StripePaymentForm
-              clientSecret={checkout.clientSecret}
-              publishableKey={checkout.publishableKey}
-              returnUrl={checkout.returnUrl || `${window.location.origin}/pay/${id}`}
-              onSuccess={() => setPaid(true)}
-            />
-          ) : checkout?.mode === "paypal_embedded" && checkout.clientId ? (
-            <PayPalEmbeddedCheckout
-              paymentLinkId={id}
-              clientId={checkout.clientId}
-              currency={checkout.currency || link.currency}
-              onSuccess={() => setPaid(true)}
-            />
-          ) : checkout?.mode === "demo" ? (
-            <div className="p-6">
-              <div className="mb-4 flex items-center gap-2 text-sm text-slate-500">
-                <CreditCard className="h-4 w-4" />
-                Demo payment — no real charge
+            <div className="mt-6 space-y-4">
+              <div className="flex justify-between border-b border-slate-100 pb-3 text-sm">
+                <span className="text-slate-500">Pay to</span>
+                <span className="font-medium text-slate-900">{brand.name}</span>
               </div>
-              <Button
-                className="w-full"
-                size="lg"
-                onClick={handleDemoPay}
-                loading={paying}
-                style={{ backgroundColor: accentColor }}
+              <div className="flex justify-between border-b border-slate-100 pb-3 text-sm">
+                <span className="text-slate-500">Client</span>
+                <span className="font-medium text-slate-900">{link.client.name}</span>
+              </div>
+              {link.description && (
+                <div className="flex justify-between border-b border-slate-100 pb-3 text-sm">
+                  <span className="text-slate-500">Description</span>
+                  <span className="max-w-[60%] text-right font-medium text-slate-900">
+                    {link.description}
+                  </span>
+                </div>
+              )}
+              <div
+                className="flex items-center justify-between rounded-xl p-4"
+                style={{ backgroundColor: `${accentColor}12` }}
               >
-                Pay {formatCurrency(link.amount, link.currency)}
-              </Button>
+                <span className="text-sm font-medium text-slate-600">Total due</span>
+                <span className="text-3xl font-bold" style={{ color: accentColor }}>
+                  {formatCurrency(link.amount, link.currency)}
+                </span>
+              </div>
             </div>
-          ) : null}
-        </Card>
 
-        <p className="text-center text-xs text-slate-400">
-          Powered by {brand.name} · Secure payment
-        </p>
+            <div className="mt-6 flex items-center justify-center gap-2 text-xs text-slate-400">
+              <Lock className="h-3.5 w-3.5" />
+              SSL encrypted · Secure checkout
+            </div>
+          </Card>
+
+          <Card className="overflow-hidden shadow-md">
+            <div className="border-b border-slate-100 bg-white px-6 py-4">
+              <h2 className="text-lg font-semibold text-slate-900">Payment</h2>
+              <p className="text-sm text-slate-500">
+                {link.provider === "STRIPE"
+                  ? "Pay securely with card or wallet"
+                  : "Pay securely with PayPal"}
+              </p>
+            </div>
+            {paymentPanel}
+          </Card>
+        </div>
       </div>
     </div>
   );

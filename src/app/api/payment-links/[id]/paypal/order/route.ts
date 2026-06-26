@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { createPayPalOrder, hasPayPalConfig } from "@/lib/paypal";
+import { getBaseUrl } from "@/lib/utils";
 
 export async function POST(
   _request: Request,
@@ -8,7 +9,7 @@ export async function POST(
 ) {
   try {
     const { id } = await params;
-    const baseUrl = process.env.NEXTAUTH_URL || "http://localhost:3000";
+    const baseUrl = getBaseUrl();
 
     if (!hasPayPalConfig()) {
       return NextResponse.json({ error: "PayPal is not configured" }, { status: 503 });
@@ -52,7 +53,13 @@ export async function POST(
     return NextResponse.json({ orderId: order.id });
   } catch (error) {
     console.error("PayPal order error:", error);
-    const message = error instanceof Error ? error.message : "Failed to create PayPal order";
+    let message = "Failed to create PayPal order";
+    if (error instanceof Error) message = error.message;
+    if (error && typeof error === "object" && "body" in error) {
+      const body = (error as { body?: { message?: string; details?: Array<{ issue?: string; description?: string }> } }).body;
+      if (body?.details?.[0]?.description) message = body.details[0].description;
+      else if (body?.message) message = body.message;
+    }
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }

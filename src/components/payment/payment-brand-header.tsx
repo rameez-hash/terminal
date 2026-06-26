@@ -27,11 +27,43 @@ export function resolveBrand(brand?: BrandDisplay | null): BrandDisplay {
 interface PaymentBrandHeaderProps {
   brand?: BrandDisplay | null;
   compact?: boolean;
+  logoOnly?: boolean;
+  size?: number;
 }
 
-export function PaymentBrandHeader({ brand, compact }: PaymentBrandHeaderProps) {
+export function PaymentBrandHeader({
+  brand,
+  compact,
+  logoOnly,
+  size,
+}: PaymentBrandHeaderProps) {
   const resolved = resolveBrand(brand);
   const color = resolved.primaryColor || "#2563eb";
+  const logoSize = size ?? (logoOnly ? 72 : compact ? 36 : 44);
+
+  if (logoOnly) {
+    return (
+      <div
+        className="flex shrink-0 items-center justify-center overflow-hidden rounded-xl bg-white shadow-sm"
+        style={{
+          width: logoSize,
+          height: logoSize,
+          border: `2px solid ${color}18`,
+        }}
+      >
+        {resolved.logo ? (
+          <BrandLogo src={resolved.logo} alt={resolved.name} size={logoSize} />
+        ) : (
+          <span
+            className="flex h-full w-full items-center justify-center text-xl font-bold text-white"
+            style={{ backgroundColor: color }}
+          >
+            {resolved.name.charAt(0)}
+          </span>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className="flex items-center gap-3">

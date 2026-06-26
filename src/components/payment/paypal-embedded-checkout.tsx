@@ -10,6 +10,15 @@ interface PayPalEmbeddedCheckoutProps {
   onSuccess: () => void;
 }
 
+function parsePayPalError(err: unknown): string {
+  if (err && typeof err === "object") {
+    const record = err as Record<string, unknown>;
+    if (typeof record.message === "string" && record.message) return record.message;
+    if (typeof record.details === "string" && record.details) return record.details;
+  }
+  return "Payment could not be completed. Please try again or use PayPal account.";
+}
+
 export function PayPalEmbeddedCheckout({
   paymentLinkId,
   clientId,
@@ -60,24 +69,23 @@ export function PayPalEmbeddedCheckout({
         currency: currency.toUpperCase(),
         intent: "capture",
         components: "buttons",
-        enableFunding: "card,venmo,paylater",
+        disableFunding: "paylater,venmo,credit",
       }}
     >
-      <div className="p-4">
+      <div className="p-6">
         <PayPalButtons
           style={{
             layout: "vertical",
             color: "gold",
             shape: "rect",
             label: "paypal",
+            height: 48,
           }}
           createOrder={createOrder}
           onApprove={onApprove}
           onError={(err) => {
             console.error("PayPal error:", err);
-            toast.error(
-              "PayPal payment failed. If using a debit/credit card, ensure card payments are enabled in your PayPal business account."
-            );
+            toast.error(parsePayPalError(err));
           }}
           onCancel={() => toast.error("Payment cancelled")}
         />

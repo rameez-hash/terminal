@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { createStripePaymentIntent, hasStripeConfig } from "@/lib/stripe";
 import { hasPayPalConfig, getPayPalClientId } from "@/lib/paypal";
 import { isDemoMode } from "@/lib/demo";
+import { getBaseUrl } from "@/lib/utils";
 
 export async function POST(
   _request: Request,
@@ -10,7 +11,7 @@ export async function POST(
 ) {
   try {
     const { id } = await params;
-    const baseUrl = process.env.NEXTAUTH_URL || "http://localhost:3000";
+    const baseUrl = getBaseUrl();
 
     const paymentLink = await prisma.paymentLink.findUnique({
       where: { id },

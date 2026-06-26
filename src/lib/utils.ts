@@ -6,6 +6,11 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
+/** Trim whitespace/newlines from NEXTAUTH_URL (common Vercel copy-paste issue). */
+export function getBaseUrl() {
+  return (process.env.NEXTAUTH_URL || "http://localhost:3000").trim().replace(/\/$/, "");
+}
+
 export function toJson(value?: Record<string, unknown>): Prisma.InputJsonValue | undefined {
   if (!value) return undefined;
   return JSON.parse(JSON.stringify(value)) as Prisma.InputJsonValue;
