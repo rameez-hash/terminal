@@ -173,10 +173,26 @@ model MonthlyTarget {
   @@map("monthly_targets")
 }
 
+model Brand {
+  id           String   @id @default(cuid())
+  name         String
+  logo         String?
+  primaryColor String?  @default("#2563eb")
+  tagline      String?
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  paymentLinks PaymentLink[]
+
+  @@map("brands")
+}
+
 model PaymentLink {
   id              String            @id @default(cuid())
   sellerId        String
   clientId        String
+  brandId         String?
   amount          Float
   currency        String            @default("USD")
   description     String?
@@ -192,10 +208,12 @@ model PaymentLink {
 
   seller       User          @relation(fields: [sellerId], references: [id])
   client       Client        @relation(fields: [clientId], references: [id])
+  brand        Brand?        @relation(fields: [brandId], references: [id])
   transactions Transaction[]
 
   @@index([sellerId])
   @@index([clientId])
+  @@index([brandId])
   @@index([status])
   @@map("payment_links")
 }

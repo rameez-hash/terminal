@@ -8,6 +8,7 @@ import { parsePaginationParams, paginatedResponse } from "@/lib/utils";
 
 const createPaymentLinkSchema = z.object({
   clientId: z.string(),
+  brandId: z.string(),
   amount: z.number().positive(),
   currency: z.string().default("USD"),
   description: z.string().optional(),
@@ -40,6 +41,7 @@ export async function GET(request: Request) {
         include: {
           client: { select: { id: true, name: true, email: true } },
           seller: { select: { id: true, name: true, email: true, role: true } },
+          brand: { select: { id: true, name: true, logo: true, primaryColor: true, tagline: true } },
         },
         orderBy: { [sortBy]: sortOrder },
         skip,
@@ -66,10 +68,18 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Client not found" }, { status: 404 });
     }
 
+    const brand = await prisma.brand.findFirst({
+      where: { id: data.brandId, isActive: true },
+    });
+    if (!brand) {
+      return NextResponse.json({ error: "Brand not found or inactive" }, { status: 404 });
+    }
+
     const paymentLink = await prisma.paymentLink.create({
       data: {
         sellerId: user.id,
         clientId: data.clientId,
+        brandId: data.brandId,
         amount: data.amount,
         currency: data.currency,
         description: data.description,
@@ -84,13 +94,14 @@ export async function POST(request: Request) {
       include: {
         client: { select: { id: true, name: true, email: true } },
         seller: { select: { id: true, name: true, email: true, role: true } },
+        brand: { select: { id: true, name: true, logo: true, primaryColor: true, tagline: true } },
       },
     });
 
     await logActivity({
       userId: user.id,
       type: "PAYMENT_LINK_CREATED",
-      description: `Created ${data.provider} payment link for ${client.name} - ${data.amount} ${data.currency}`,
+      description: `Created ${data.provider} payment link for ${client.name} (${brand.name}) - ${data.amount} ${data.currency}`,
       metadata: { paymentLinkId: updated.id, provider: data.provider, url: brandedUrl },
     });
 

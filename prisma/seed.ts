@@ -56,6 +56,44 @@ async function main() {
     },
   });
 
+  const bmdBrand = await prisma.brand.upsert({
+    where: { id: "seed-brand-bmd" },
+    update: {
+      name: "BMD Digital",
+      logo: "/logo-rename.png",
+      primaryColor: "#2563eb",
+      tagline: "Secure Payment",
+      isActive: true,
+    },
+    create: {
+      id: "seed-brand-bmd",
+      name: "BMD Digital",
+      logo: "/logo-rename.png",
+      primaryColor: "#2563eb",
+      tagline: "Secure Payment",
+      isActive: true,
+    },
+  });
+
+  await prisma.brand.upsert({
+    where: { id: "seed-brand-terminal" },
+    update: {
+      name: "Terminal",
+      logo: "/logo-rename.png",
+      primaryColor: "#4f46e5",
+      tagline: "Business Payments",
+      isActive: true,
+    },
+    create: {
+      id: "seed-brand-terminal",
+      name: "Terminal",
+      logo: "/logo-rename.png",
+      primaryColor: "#4f46e5",
+      tagline: "Business Payments",
+      isActive: true,
+    },
+  });
+
   const client1 = await prisma.client.upsert({
     where: { id: "seed-client-1" },
     update: {},
@@ -128,11 +166,12 @@ async function main() {
 
   await prisma.paymentLink.upsert({
     where: { id: "seed-link-1" },
-    update: {},
+    update: { brandId: bmdBrand.id },
     create: {
       id: "seed-link-1",
       sellerId: seller1.id,
       clientId: client1.id,
+      brandId: bmdBrand.id,
       amount: 499.99,
       currency: "USD",
       description: "Monthly subscription - Acme Corp",
@@ -143,11 +182,12 @@ async function main() {
 
   await prisma.paymentLink.upsert({
     where: { id: "seed-link-2" },
-    update: {},
+    update: { brandId: bmdBrand.id },
     create: {
       id: "seed-link-2",
       sellerId: seller2.id,
       clientId: client2.id,
+      brandId: bmdBrand.id,
       amount: 1299.0,
       currency: "USD",
       description: "Enterprise license - TechStart",

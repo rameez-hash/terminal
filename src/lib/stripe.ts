@@ -24,6 +24,7 @@ export async function createStripeEmbeddedSession({
   paymentLinkId,
   clientEmail,
   returnUrl,
+  brandName,
 }: {
   amount: number;
   currency: string;
@@ -31,6 +32,7 @@ export async function createStripeEmbeddedSession({
   paymentLinkId: string;
   clientEmail: string;
   returnUrl: string;
+  brandName?: string;
 }) {
   const stripe = getStripe();
   const session = await stripe.checkout.sessions.create({
@@ -42,7 +44,7 @@ export async function createStripeEmbeddedSession({
         price_data: {
           currency: currency.toLowerCase(),
           product_data: {
-            name: description || "Payment",
+            name: brandName ? `${brandName} — ${description || "Payment"}` : description || "Payment",
           },
           unit_amount: Math.round(amount * 100),
         },

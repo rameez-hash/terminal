@@ -16,7 +16,7 @@ export async function POST(
 
   const paymentLink = await prisma.paymentLink.findUnique({
     where: { id },
-    include: { client: true },
+    include: { client: true, brand: true },
   });
 
   if (!paymentLink || paymentLink.provider !== "PAYPAL") {
@@ -34,6 +34,7 @@ export async function POST(
     paymentLinkId: paymentLink.id,
     returnUrl: `${baseUrl}/pay/${id}?success=true`,
     cancelUrl: `${baseUrl}/pay/${id}?cancelled=true`,
+    brandName: paymentLink.brand?.name,
   });
 
   await prisma.paymentLink.update({

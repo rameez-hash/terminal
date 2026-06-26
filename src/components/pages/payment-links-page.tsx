@@ -7,6 +7,7 @@ import { Input, Select } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { Modal, ModalFooter, ModalForm, Badge, Pagination, LoadingSpinner, EmptyState } from "@/components/ui/modal";
 import { toast } from "sonner";
+import { PaymentBrandHeader } from "@/components/payment/payment-brand-header";
 import { formatCurrency, formatDate } from "@/lib/utils";
 
 interface PaymentLink {
@@ -20,6 +21,7 @@ interface PaymentLink {
   createdAt: string;
   client: { id: string; name: string; email: string };
   seller?: { id: string; name: string; role: string };
+  brand?: { id: string; name: string; logo?: string | null; primaryColor?: string | null };
 }
 
 interface Client {
@@ -27,9 +29,18 @@ interface Client {
   name: string;
 }
 
+interface Brand {
+  id: string;
+  name: string;
+  logo?: string | null;
+  primaryColor?: string | null;
+  tagline?: string | null;
+}
+
 export function PaymentLinksPage({ isAdmin }: { isAdmin?: boolean }) {
   const [links, setLinks] = useState<PaymentLink[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
+  const [brands, setBrands] = useState<Brand[]>([]);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
@@ -37,17 +48,34 @@ export function PaymentLinksPage({ isAdmin }: { isAdmin?: boolean }) {
   const [statusFilter, setStatusFilter] = useState("");
   const [modalOpen, setModalOpen] = useState(false);
   const [clientMode, setClientMode] = useState<"existing" | "new">("existing");
-  const [form, setForm] = useState({ clientId: "", amount: "", currency: "USD", description: "", provider: "STRIPE" });
+  const [form, setForm] = useState({ clientId: "", brandId: "", amount: "", currency: "USD", description: "", provider: "STRIPE" });
   const [newClient, setNewClient] = useState({ name: "", email: "", phone: "" });
   const [newClientErrors, setNewClientErrors] = useState<{ email?: string; phone?: string }>({});
   const [submitting, setSubmitting] = useState(false);
 
   const resetModal = () => {
     setClientMode("existing");
-    setForm({ clientId: "", amount: "", currency: "USD", description: "", provider: "STRIPE" });
+    setForm({
+      clientId: "",
+      brandId: brands[0]?.id || "",
+      amount: "",
+      currency: "USD",
+      description: "",
+      provider: "STRIPE",
+    });
     setNewClient({ name: "", email: "", phone: "" });
     setNewClientErrors({});
   };
+
+  const fetchBrands = useCallback(async () => {
+    const res = await fetch("/api/brands");
+    const data = await res.json();
+    const list = data.data || [];
+    setBrands(list);
+    if (list.length > 0) {
+      setForm((prev) => ({ ...prev, brandId: prev.brandId || list[0].id }));
+    }
+  }, []);
 
   const fetchClients = useCallback(async () => {
     const res = await fetch("/api/clients?limit=100");
@@ -70,7 +98,8 @@ export function PaymentLinksPage({ isAdmin }: { isAdmin?: boolean }) {
 
   useEffect(() => {
     fetchClients();
-  }, [fetchClients]);
+    fetchBrands();
+  }, [fetchClients, fetchBrands]);
 
   const checkNewClientDuplicate = async (field: "email" | "phone") => {
     const email = newClient.email.trim();
@@ -139,11 +168,17 @@ export function PaymentLinksPage({ isAdmin }: { isAdmin?: boolean }) {
         return;
       }
 
+      if (!form.brandId) {
+        toast.error("Please select a brand");
+        return;
+      }
+
       const res = await fetch("/api/payment-links", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           clientId,
+          brandId: form.brandId,
           amount: parseFloat(form.amount),
           currency: form.currency,
           description: form.description,
@@ -183,6 +218,8 @@ export function PaymentLinksPage({ isAdmin }: { isAdmin?: boolean }) {
       default: return "default" as const;
     }
   };
+
+  const selectedBrand = brands.find((b) => b.id === form.brandId);
 
   return (
     <div className="space-y-6">
@@ -228,6 +265,7 @@ export function PaymentLinksPage({ isAdmin }: { isAdmin?: boolean }) {
               <thead className="border-b border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-800">
                 <tr>
                   <th className="px-4 py-3 text-left font-medium">Client</th>
+                  <th className="px-4 py-3 text-left font-medium">Brand</th>
                   {isAdmin && <th className="px-4 py-3 text-left font-medium">Created By</th>}
                   <th className="px-4 py-3 text-left font-medium">Amount</th>
                   <th className="px-4 py-3 text-left font-medium">Provider</th>
@@ -242,6 +280,9 @@ export function PaymentLinksPage({ isAdmin }: { isAdmin?: boolean }) {
                     <td className="px-4 py-3">
                       <div className="font-medium">{link.client.name}</div>
                       <div className="text-xs text-slate-500">{link.client.email}</div>
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className="font-medium">{link.brand?.name || "—"}</span>
                     </td>
                     {isAdmin && (
                       <td className="px-4 py-3">
@@ -364,6 +405,24 @@ export function PaymentLinksPage({ isAdmin }: { isAdmin?: boolean }) {
                 error={newClientErrors.phone}
               />
               <p className="text-xs text-slate-500">Email and phone must be unique. Duplicate entries are blocked.</p>
+            </div>
+          )}
+
+          <Select
+            label="Brand"
+            options={
+              brands.length > 0
+                ? brands.map((b) => ({ value: b.id, label: b.name }))
+                : [{ value: "", label: "No brands available" }]
+            }
+            value={form.brandId}
+            onChange={(e) => setForm({ ...form, brandId: e.target.value })}
+            required
+          />
+          {selectedBrand && (
+            <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-800/50">
+              <p className="mb-2 text-xs text-slate-500">Client will see this brand on the payment page</p>
+              <PaymentBrandHeader brand={selectedBrand} />
             </div>
           )}
 

@@ -7,6 +7,7 @@ import { Card } from "@/components/ui/card";
 import { Badge, LoadingSpinner } from "@/components/ui/modal";
 import { StripeEmbeddedCheckout } from "@/components/payment/stripe-embedded-checkout";
 import { PayPalEmbeddedCheckout } from "@/components/payment/paypal-embedded-checkout";
+import { PaymentBrandHeader, resolveBrand } from "@/components/payment/payment-brand-header";
 import { formatCurrency } from "@/lib/utils";
 import { toast } from "sonner";
 import { CreditCard, CheckCircle, Loader2, ShieldCheck } from "lucide-react";
@@ -21,6 +22,12 @@ interface PaymentLinkData {
   externalUrl?: string;
   client: { name: string; email: string };
   seller: { name: string };
+  brand?: {
+    name: string;
+    logo?: string | null;
+    primaryColor?: string | null;
+    tagline?: string | null;
+  } | null;
 }
 
 interface CheckoutConfig {
@@ -105,14 +112,18 @@ function PayPageContent() {
     );
   }
 
+  const brand = resolveBrand(link.brand);
+  const accentColor = brand.primaryColor || "#2563eb";
+
   if (paid || link.status === "PAID") {
     return (
       <div className="flex min-h-screen items-center justify-center bg-slate-50 p-4 dark:bg-slate-950">
         <Card className="w-full max-w-md p-8 text-center">
-          <CheckCircle className="mx-auto h-16 w-16 text-green-500" />
+          <PaymentBrandHeader brand={brand} />
+          <CheckCircle className="mx-auto mt-6 h-16 w-16 text-green-500" />
           <h1 className="mt-4 text-2xl font-bold">Payment Successful!</h1>
           <p className="mt-2 text-slate-500">
-            {formatCurrency(link.amount, link.currency)} paid to {link.seller.name}
+            {formatCurrency(link.amount, link.currency)} paid to {brand.name}
           </p>
           <p className="mt-1 text-sm text-slate-400">Thank you for your payment</p>
         </Card>
@@ -127,18 +138,9 @@ function PayPageContent() {
   return (
     <div className="min-h-screen bg-slate-50 py-8 px-4 dark:bg-slate-950">
       <div className="mx-auto max-w-lg space-y-6">
-        {/* Branded header — always your domain */}
         <Card className="p-6">
           <div className="mb-4 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-indigo-600 text-white font-bold">
-                S
-              </div>
-              <div>
-                <p className="font-semibold">SalesPortal</p>
-                <p className="text-xs text-slate-400">Secure Payment</p>
-              </div>
-            </div>
+            <PaymentBrandHeader brand={brand} />
             <div className="flex items-center gap-1 text-xs text-slate-400">
               <ShieldCheck className="h-4 w-4" />
               SSL Secured
@@ -148,6 +150,10 @@ function PayPageContent() {
           <div className="space-y-3 border-t border-slate-100 pt-4 dark:border-slate-800">
             <div className="flex justify-between text-sm">
               <span className="text-slate-500">Pay to</span>
+              <span className="font-medium">{brand.name}</span>
+            </div>
+            <div className="flex justify-between text-sm">
+              <span className="text-slate-500">Handled by</span>
               <span className="font-medium">{link.seller.name}</span>
             </div>
             <div className="flex justify-between text-sm">
@@ -160,9 +166,12 @@ function PayPageContent() {
                 <span>{link.description}</span>
               </div>
             )}
-            <div className="flex justify-between items-center rounded-lg bg-indigo-50 p-3 dark:bg-indigo-950">
+            <div
+              className="flex justify-between items-center rounded-lg p-3"
+              style={{ backgroundColor: `${accentColor}15` }}
+            >
               <span className="text-sm text-slate-500">Total</span>
-              <span className="text-2xl font-bold text-indigo-600">
+              <span className="text-2xl font-bold" style={{ color: accentColor }}>
                 {formatCurrency(link.amount, link.currency)}
               </span>
             </div>
@@ -173,7 +182,6 @@ function PayPageContent() {
           </div>
         </Card>
 
-        {/* Payment form area */}
         <Card className="overflow-hidden p-0">
           {checkout?.mode === "stripe_embedded" && checkout.clientSecret && checkout.publishableKey ? (
             <div className="p-1">
@@ -195,7 +203,13 @@ function PayPageContent() {
                 <CreditCard className="h-4 w-4" />
                 Demo payment — no real charge
               </div>
-              <Button className="w-full" size="lg" onClick={handleDemoPay} loading={paying}>
+              <Button
+                className="w-full"
+                size="lg"
+                onClick={handleDemoPay}
+                loading={paying}
+                style={{ backgroundColor: accentColor }}
+              >
                 Pay {formatCurrency(link.amount, link.currency)}
               </Button>
             </div>
@@ -208,7 +222,7 @@ function PayPageContent() {
         </Card>
 
         <p className="text-center text-xs text-slate-400">
-          Powered by SalesPortal · Your payment link: /pay/{id}
+          Powered by {brand.name} · Secure payment
         </p>
       </div>
     </div>

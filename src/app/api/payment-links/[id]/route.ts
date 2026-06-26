@@ -14,6 +14,7 @@ export async function GET(
     include: {
       client: { select: { name: true, email: true } },
       seller: { select: { name: true } },
+      brand: { select: { id: true, name: true, logo: true, primaryColor: true, tagline: true } },
     },
   });
 

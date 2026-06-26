@@ -19,6 +19,7 @@ import {
   FileText,
   Link2,
   BarChart3,
+  Palette,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
@@ -36,6 +37,7 @@ const adminNav: NavItem[] = [
   { href: "/admin/sellers", label: "Sellers", icon: <Users className="h-5 w-5" /> },
   { href: "/admin/clients", label: "Clients", icon: <UserCircle className="h-5 w-5" /> },
   { href: "/admin/payment-links", label: "Payment Links", icon: <Link2 className="h-5 w-5" /> },
+  { href: "/admin/brands", label: "Brands", icon: <Palette className="h-5 w-5" /> },
   { href: "/admin/transactions", label: "Transactions", icon: <CreditCard className="h-5 w-5" /> },
   { href: "/admin/targets", label: "Targets", icon: <Target className="h-5 w-5" /> },
   { href: "/admin/reports", label: "Reports", icon: <BarChart3 className="h-5 w-5" /> },

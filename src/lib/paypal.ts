@@ -48,6 +48,7 @@ export async function createPayPalOrder({
   paymentLinkId,
   returnUrl,
   cancelUrl,
+  brandName,
 }: {
   amount: number;
   currency: string;
@@ -55,6 +56,7 @@ export async function createPayPalOrder({
   paymentLinkId: string;
   returnUrl: string;
   cancelUrl: string;
+  brandName?: string;
 }) {
   const controller = getOrdersController();
   const response = await controller.createOrder({
@@ -73,7 +75,7 @@ export async function createPayPalOrder({
       applicationContext: {
         returnUrl,
         cancelUrl,
-        brandName: "Sales Portal",
+        brandName: brandName || "Sales Portal",
         userAction: OrderApplicationContextUserAction.PayNow,
       },
     },

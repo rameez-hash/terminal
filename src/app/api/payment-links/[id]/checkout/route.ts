@@ -13,7 +13,7 @@ export async function POST(
 
   const paymentLink = await prisma.paymentLink.findUnique({
     where: { id },
-    include: { client: true },
+    include: { client: true, brand: true },
   });
 
   if (!paymentLink) {
@@ -44,6 +44,7 @@ export async function POST(
       paymentLinkId: paymentLink.id,
       clientEmail: paymentLink.client.email,
       returnUrl: `${baseUrl}/pay/${id}?success=true`,
+      brandName: paymentLink.brand?.name,
     });
 
     await prisma.paymentLink.update({
