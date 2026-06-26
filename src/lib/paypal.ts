@@ -86,7 +86,7 @@ export async function createPayPalOrder({
         brandName: brandName || "Sales Portal",
         userAction: OrderApplicationContextUserAction.PayNow,
         shippingPreference: OrderApplicationContextShippingPreference.NoShipping,
-        landingPage: OrderApplicationContextLandingPage.NoPreference,
+        landingPage: OrderApplicationContextLandingPage.Billing,
       },
     },
   });

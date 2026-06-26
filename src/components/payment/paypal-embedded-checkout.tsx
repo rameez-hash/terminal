@@ -69,7 +69,7 @@ export function PayPalEmbeddedCheckout({
         currency: currency.toUpperCase(),
         intent: "capture",
         components: "buttons",
-        disableFunding: "paylater,venmo,credit",
+        enableFunding: "card,venmo,paylater",
       }}
     >
       <div className="p-6">
