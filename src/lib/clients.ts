@@ -19,10 +19,27 @@ export async function findClientDuplicate(
   const emailMatch = await prisma.client.findFirst({
     where: {
       ...(excludeId && { id: { not: excludeId } }),
-      email: { equals: normalizedEmail, mode: "insensitive" },
+      email: normalizedEmail,
     },
     select: { id: true, email: true, phone: true, name: true },
   });
+
+  if (!emailMatch) {
+    try {
+      const caseInsensitiveMatch = await prisma.client.findFirst({
+        where: {
+          ...(excludeId && { id: { not: excludeId } }),
+          email: { equals: normalizedEmail, mode: "insensitive" },
+        },
+        select: { id: true, email: true, phone: true, name: true },
+      });
+      if (caseInsensitiveMatch) {
+        return { field: "email" as const, client: caseInsensitiveMatch };
+      }
+    } catch {
+      // SQLite and some providers may not support insensitive mode
+    }
+  }
 
   if (emailMatch) {
     return { field: "email" as const, client: emailMatch };

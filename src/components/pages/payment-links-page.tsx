@@ -39,12 +39,14 @@ export function PaymentLinksPage({ isAdmin }: { isAdmin?: boolean }) {
   const [clientMode, setClientMode] = useState<"existing" | "new">("existing");
   const [form, setForm] = useState({ clientId: "", amount: "", currency: "USD", description: "", provider: "STRIPE" });
   const [newClient, setNewClient] = useState({ name: "", email: "", phone: "" });
+  const [newClientErrors, setNewClientErrors] = useState<{ email?: string; phone?: string }>({});
   const [submitting, setSubmitting] = useState(false);
 
   const resetModal = () => {
     setClientMode("existing");
     setForm({ clientId: "", amount: "", currency: "USD", description: "", provider: "STRIPE" });
     setNewClient({ name: "", email: "", phone: "" });
+    setNewClientErrors({});
   };
 
   const fetchClients = useCallback(async () => {
@@ -70,6 +72,34 @@ export function PaymentLinksPage({ isAdmin }: { isAdmin?: boolean }) {
     fetchClients();
   }, [fetchClients]);
 
+  const checkNewClientDuplicate = async (field: "email" | "phone") => {
+    const email = newClient.email.trim();
+    const phone = newClient.phone.trim();
+
+    if (field === "email" && !email) {
+      setNewClientErrors((prev) => ({ ...prev, email: undefined }));
+      return false;
+    }
+    if (field === "phone" && !phone) {
+      setNewClientErrors((prev) => ({ ...prev, phone: undefined }));
+      return false;
+    }
+
+    const params = new URLSearchParams({ email });
+    if (phone) params.set("phone", phone);
+
+    const res = await fetch(`/api/clients/check-duplicate?${params}`);
+    const data = await res.json();
+
+    if (data.duplicate && data.field === field) {
+      setNewClientErrors((prev) => ({ ...prev, [field]: data.message }));
+      return true;
+    }
+
+    setNewClientErrors((prev) => ({ ...prev, [field]: undefined }));
+    return false;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitting(true);
@@ -78,6 +108,12 @@ export function PaymentLinksPage({ isAdmin }: { isAdmin?: boolean }) {
       let clientId = form.clientId;
 
       if (clientMode === "new") {
+        const emailDuplicate = await checkNewClientDuplicate("email");
+        const phoneDuplicate = newClient.phone.trim()
+          ? await checkNewClientDuplicate("phone")
+          : false;
+        if (emailDuplicate || phoneDuplicate) return;
+
         const clientRes = await fetch("/api/clients", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -86,6 +122,12 @@ export function PaymentLinksPage({ isAdmin }: { isAdmin?: boolean }) {
         const clientData = await clientRes.json();
         if (!clientRes.ok) {
           toast.error(clientData.error || "Failed to create client");
+          if (clientData.error?.toLowerCase().includes("email")) {
+            setNewClientErrors((prev) => ({ ...prev, email: clientData.error }));
+          }
+          if (clientData.error?.toLowerCase().includes("phone")) {
+            setNewClientErrors((prev) => ({ ...prev, phone: clientData.error }));
+          }
           return;
         }
         clientId = clientData.id;
@@ -297,7 +339,14 @@ export function PaymentLinksPage({ isAdmin }: { isAdmin?: boolean }) {
                 type="email"
                 placeholder="client@company.com"
                 value={newClient.email}
-                onChange={(e) => setNewClient({ ...newClient, email: e.target.value })}
+                onChange={(e) => {
+                  setNewClient({ ...newClient, email: e.target.value });
+                  if (newClientErrors.email) {
+                    setNewClientErrors((prev) => ({ ...prev, email: undefined }));
+                  }
+                }}
+                onBlur={() => checkNewClientDuplicate("email")}
+                error={newClientErrors.email}
                 required={clientMode === "new"}
               />
               <Input
@@ -305,9 +354,16 @@ export function PaymentLinksPage({ isAdmin }: { isAdmin?: boolean }) {
                 type="tel"
                 placeholder="+1 555 0100"
                 value={newClient.phone}
-                onChange={(e) => setNewClient({ ...newClient, phone: e.target.value })}
+                onChange={(e) => {
+                  setNewClient({ ...newClient, phone: e.target.value });
+                  if (newClientErrors.phone) {
+                    setNewClientErrors((prev) => ({ ...prev, phone: undefined }));
+                  }
+                }}
+                onBlur={() => checkNewClientDuplicate("phone")}
+                error={newClientErrors.phone}
               />
-              <p className="text-xs text-slate-500">Email and phone must be unique across all clients.</p>
+              <p className="text-xs text-slate-500">Email and phone must be unique. Duplicate entries are blocked.</p>
             </div>
           )}
 

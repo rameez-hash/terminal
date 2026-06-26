@@ -36,6 +36,8 @@ export function ClientsPage({ canEditAll, userId }: ClientsPageProps) {
   const [modalOpen, setModalOpen] = useState(false);
   const [editClient, setEditClient] = useState<Client | null>(null);
   const [form, setForm] = useState({ name: "", email: "", phone: "", company: "", country: "", notes: "" });
+  const [formErrors, setFormErrors] = useState<{ email?: string; phone?: string }>({});
+  const [checkingDuplicate, setCheckingDuplicate] = useState(false);
 
   const fetchClients = useCallback(async () => {
     setLoading(true);
@@ -51,8 +53,52 @@ export function ClientsPage({ canEditAll, userId }: ClientsPageProps) {
 
   const canEdit = (client: Client) => canEditAll || client.creator.id === userId;
 
+  const checkDuplicate = async (field: "email" | "phone") => {
+    const email = form.email.trim();
+    const phone = form.phone.trim();
+
+    if (field === "email" && !email) {
+      setFormErrors((prev) => ({ ...prev, email: undefined }));
+      return false;
+    }
+    if (field === "phone" && !phone) {
+      setFormErrors((prev) => ({ ...prev, phone: undefined }));
+      return false;
+    }
+
+    setCheckingDuplicate(true);
+    try {
+      const params = new URLSearchParams({ email });
+      if (phone) params.set("phone", phone);
+      if (editClient) params.set("excludeId", editClient.id);
+
+      const res = await fetch(`/api/clients/check-duplicate?${params}`);
+      const data = await res.json();
+
+      if (data.duplicate && data.field === field) {
+        setFormErrors((prev) => ({ ...prev, [field]: data.message }));
+        return true;
+      }
+
+      setFormErrors((prev) => ({ ...prev, [field]: undefined }));
+      return false;
+    } finally {
+      setCheckingDuplicate(false);
+    }
+  };
+
+  const validateForm = async () => {
+    const emailDuplicate = await checkDuplicate("email");
+    const phoneDuplicate = form.phone.trim() ? await checkDuplicate("phone") : false;
+    return emailDuplicate || phoneDuplicate;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    const hasDuplicate = await validateForm();
+    if (hasDuplicate) return;
+
     const url = editClient ? `/api/clients/${editClient.id}` : "/api/clients";
     const method = editClient ? "PATCH" : "POST";
 
@@ -65,6 +111,12 @@ export function ClientsPage({ canEditAll, userId }: ClientsPageProps) {
     if (!res.ok) {
       const data = await res.json();
       toast.error(data.error);
+      if (data.error?.toLowerCase().includes("email")) {
+        setFormErrors((prev) => ({ ...prev, email: data.error }));
+      }
+      if (data.error?.toLowerCase().includes("phone")) {
+        setFormErrors((prev) => ({ ...prev, phone: data.error }));
+      }
       return;
     }
 
@@ -72,7 +124,15 @@ export function ClientsPage({ canEditAll, userId }: ClientsPageProps) {
     setModalOpen(false);
     setEditClient(null);
     setForm({ name: "", email: "", phone: "", company: "", country: "", notes: "" });
+    setFormErrors({});
     fetchClients();
+  };
+
+  const openCreate = () => {
+    setEditClient(null);
+    setForm({ name: "", email: "", phone: "", company: "", country: "", notes: "" });
+    setFormErrors({});
+    setModalOpen(true);
   };
 
   const openEdit = (client: Client) => {
@@ -85,6 +145,7 @@ export function ClientsPage({ canEditAll, userId }: ClientsPageProps) {
       country: client.country || "",
       notes: client.notes || "",
     });
+    setFormErrors({});
     setModalOpen(true);
   };
 
@@ -95,7 +156,7 @@ export function ClientsPage({ canEditAll, userId }: ClientsPageProps) {
           <h1 className="text-2xl font-bold">Clients</h1>
           <p className="text-slate-500">Manage client information</p>
         </div>
-        <Button onClick={() => { setEditClient(null); setForm({ name: "", email: "", phone: "", company: "", country: "", notes: "" }); setModalOpen(true); }}>
+        <Button onClick={openCreate}>
           <Plus className="h-4 w-4" /> Add Client
         </Button>
       </div>
@@ -160,14 +221,35 @@ export function ClientsPage({ canEditAll, userId }: ClientsPageProps) {
         open={modalOpen}
         onClose={() => setModalOpen(false)}
         title={editClient ? "Edit Client" : "Create Client"}
-        description={editClient ? "Update client details below." : "Add a new client to your account."}
+        description={editClient ? "Update client details below." : "Add a new client. Email must be unique across all clients."}
         size="lg"
       >
         <ModalForm onSubmit={handleSubmit}>
           <div className="grid gap-4 sm:grid-cols-2">
             <Input label="Name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
-            <Input label="Email" type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} required />
-            <Input label="Phone" type="tel" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
+            <Input
+              label="Email"
+              type="email"
+              value={form.email}
+              onChange={(e) => {
+                setForm({ ...form, email: e.target.value });
+                if (formErrors.email) setFormErrors((prev) => ({ ...prev, email: undefined }));
+              }}
+              onBlur={() => checkDuplicate("email")}
+              error={formErrors.email}
+              required
+            />
+            <Input
+              label="Phone"
+              type="tel"
+              value={form.phone}
+              onChange={(e) => {
+                setForm({ ...form, phone: e.target.value });
+                if (formErrors.phone) setFormErrors((prev) => ({ ...prev, phone: undefined }));
+              }}
+              onBlur={() => checkDuplicate("phone")}
+              error={formErrors.phone}
+            />
             <Input label="Company" value={form.company} onChange={(e) => setForm({ ...form, company: e.target.value })} />
             <Input label="Country" value={form.country} onChange={(e) => setForm({ ...form, country: e.target.value })} className="sm:col-span-2" />
           </div>
@@ -176,7 +258,7 @@ export function ClientsPage({ canEditAll, userId }: ClientsPageProps) {
             <Button variant="secondary" type="button" className="w-full sm:w-auto" onClick={() => setModalOpen(false)}>
               Cancel
             </Button>
-            <Button type="submit" className="w-full sm:w-auto">
+            <Button type="submit" loading={checkingDuplicate} className="w-full sm:w-auto">
               {editClient ? "Update Client" : "Create Client"}
             </Button>
           </ModalFooter>
