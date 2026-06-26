@@ -20,6 +20,7 @@ enum UserStatus {
 enum PaymentProvider {
   STRIPE
   PAYPAL
+  MANUAL
 }
 
 enum PaymentLinkStatus {

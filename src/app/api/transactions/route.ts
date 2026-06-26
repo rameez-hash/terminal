@@ -15,7 +15,7 @@ export async function GET(request: Request) {
     const where = {
       ...(user.role === "SELLER" ? { sellerId: user.id } : sellerId ? { sellerId } : {}),
       ...(status && { status: status as "PENDING" | "COMPLETED" | "FAILED" | "REFUNDED" }),
-      ...(provider && { provider: provider as "STRIPE" | "PAYPAL" }),
+      ...(provider && { provider: provider as "STRIPE" | "PAYPAL" | "MANUAL" }),
     };
 
     const [transactions, total] = await Promise.all([

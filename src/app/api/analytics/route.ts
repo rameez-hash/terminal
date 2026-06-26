@@ -2,6 +2,12 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth } from "@/lib/auth";
 import { getCurrentMonthYear, getCompletionPercentage } from "@/lib/utils";
+import {
+  getSellerMonthlyRevenue,
+  getSellerRevenueByMonth,
+  resolveAchievedAmount,
+  enrichTargetMetrics,
+} from "@/lib/payments";
 
 export async function GET(request: Request) {
   try {
@@ -145,9 +151,31 @@ export async function GET(request: Request) {
       }));
     }
 
-    const currentTarget = sellerId
+    const currentTargetRaw = sellerId
       ? targets.find((t) => t.sellerId === sellerId)
       : targets[0];
+
+    let currentTarget = null;
+    if (currentTargetRaw && sellerId) {
+      const transactionTotal = await getSellerMonthlyRevenue(sellerId, month, year);
+      const achievedAmount = resolveAchievedAmount(
+        currentTargetRaw.achievedAmount,
+        transactionTotal
+      );
+      currentTarget = {
+        ...currentTargetRaw,
+        ...enrichTargetMetrics(
+          currentTargetRaw.targetAmount,
+          achievedAmount,
+          currentTargetRaw.currency
+        ),
+      };
+    }
+
+    const revenueByMonth =
+      !isAdmin && targetHistory.length > 0
+        ? await getSellerRevenueByMonth(user.id)
+        : new Map<string, number>();
 
     return NextResponse.json({
       stats: {
@@ -159,29 +187,18 @@ export async function GET(request: Request) {
         targetAchievementRate,
         pendingTargets,
       },
-      currentTarget: currentTarget
-        ? {
-            ...currentTarget,
-            completionPercentage: getCompletionPercentage(
-              currentTarget.achievedAmount,
-              currentTarget.targetAmount
-            ),
-            remainingAmount: Math.max(
-              0,
-              currentTarget.targetAmount - currentTarget.achievedAmount
-            ),
-          }
-        : null,
-      monthlyTargetHistory: targetHistory.map((t) => ({
-        id: t.id,
-        month: t.month,
-        year: t.year,
-        targetAmount: t.targetAmount,
-        achievedAmount: t.achievedAmount,
-        currency: t.currency,
-        completionPercentage: getCompletionPercentage(t.achievedAmount, t.targetAmount),
-        remainingAmount: Math.max(0, t.targetAmount - t.achievedAmount),
-      })),
+      currentTarget,
+      monthlyTargetHistory: targetHistory.map((t) => {
+        const key = `${t.year}-${t.month}`;
+        const transactionTotal = revenueByMonth.get(key) || 0;
+        const achievedAmount = resolveAchievedAmount(t.achievedAmount, transactionTotal);
+        return {
+          id: t.id,
+          month: t.month,
+          year: t.year,
+          ...enrichTargetMetrics(t.targetAmount, achievedAmount, t.currency),
+        };
+      }),
       topPerformingSellers,
       sellerPerformance,
       revenueByProvider: revenueByProvider.map((r) => ({

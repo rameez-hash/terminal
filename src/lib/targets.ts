@@ -65,7 +65,7 @@ export async function processSuccessfulPayment({
   paymentLinkId: string;
   amount: number;
   currency: string;
-  provider: "STRIPE" | "PAYPAL";
+  provider: "STRIPE" | "PAYPAL" | "MANUAL";
   externalId: string;
   metadata?: Record<string, unknown>;
 }) {
@@ -75,6 +75,14 @@ export async function processSuccessfulPayment({
   });
 
   if (!paymentLink) throw new Error("Payment link not found");
+
+  if (paymentLink.status === "PAID") {
+    const existing = await prisma.transaction.findFirst({
+      where: { paymentLinkId, status: "COMPLETED" },
+      orderBy: { createdAt: "desc" },
+    });
+    if (existing) return existing;
+  }
 
   const existing = await prisma.transaction.findFirst({
     where: { externalId, status: "COMPLETED" },

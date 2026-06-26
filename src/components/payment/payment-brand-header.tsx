@@ -1,4 +1,4 @@
-import Image from "next/image";
+import { BrandLogo } from "@/components/ui/brand-logo";
 
 export interface BrandDisplay {
   name: string;
@@ -44,12 +44,10 @@ export function PaymentBrandHeader({ brand, compact }: PaymentBrandHeaderProps) 
         }}
       >
         {resolved.logo ? (
-          <Image
+          <BrandLogo
             src={resolved.logo}
             alt={resolved.name}
-            width={compact ? 36 : 44}
-            height={compact ? 36 : 44}
-            className="h-full w-full object-contain p-1"
+            size={compact ? 36 : 44}
           />
         ) : (
           <span

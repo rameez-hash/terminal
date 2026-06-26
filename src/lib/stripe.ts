@@ -17,6 +17,40 @@ export function hasStripeConfig() {
   return !!(process.env.STRIPE_SECRET_KEY && process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY);
 }
 
+export async function createStripePaymentIntent({
+  amount,
+  currency,
+  description,
+  paymentLinkId,
+  clientEmail,
+  brandName,
+}: {
+  amount: number;
+  currency: string;
+  description?: string;
+  paymentLinkId: string;
+  clientEmail: string;
+  brandName?: string;
+}) {
+  const stripe = getStripe();
+  const paymentIntent = await stripe.paymentIntents.create({
+    amount: Math.round(amount * 100),
+    currency: currency.toLowerCase(),
+    receipt_email: clientEmail,
+    description: brandName
+      ? `${brandName} — ${description || "Payment"}`
+      : description || "Payment",
+    metadata: { paymentLinkId },
+    automatic_payment_methods: { enabled: true },
+  });
+
+  if (!paymentIntent.client_secret) {
+    throw new Error("Failed to create Stripe payment intent");
+  }
+
+  return paymentIntent;
+}
+
 export async function createStripeEmbeddedSession({
   amount,
   currency,

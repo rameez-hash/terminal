@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { Plus, Search, ExternalLink, Copy } from "lucide-react";
+import { Plus, Search, ExternalLink, Copy, Banknote } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input, Select } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
@@ -210,6 +210,18 @@ export function PaymentLinksPage({ isAdmin }: { isAdmin?: boolean }) {
     toast.success("Link copied");
   };
 
+  const handleManualPay = async (linkId: string) => {
+    if (!confirm("Record this payment link as manually paid?")) return;
+    const res = await fetch(`/api/payment-links/${linkId}/manual`, { method: "POST" });
+    const data = await res.json();
+    if (!res.ok) {
+      toast.error(data.error);
+      return;
+    }
+    toast.success("Manual payment recorded");
+    fetchLinks();
+  };
+
   const statusVariant = (status: string) => {
     switch (status) {
       case "ACTIVE": return "info" as const;
@@ -302,8 +314,11 @@ export function PaymentLinksPage({ isAdmin }: { isAdmin?: boolean }) {
                       <div className="flex justify-end gap-1">
                         {link.externalUrl && link.status === "ACTIVE" && (
                           <>
-                            <Button size="sm" variant="ghost" onClick={() => copyLink(link.externalUrl!)}>
+                            <Button size="sm" variant="ghost" onClick={() => copyLink(link.externalUrl!)} title="Copy link">
                               <Copy className="h-4 w-4" />
+                            </Button>
+                            <Button size="sm" variant="ghost" onClick={() => handleManualPay(link.id)} title="Record manual payment">
+                              <Banknote className="h-4 w-4" />
                             </Button>
                             <a href={link.externalUrl} target="_blank" rel="noopener noreferrer">
                               <Button size="sm" variant="ghost"><ExternalLink className="h-4 w-4" /></Button>

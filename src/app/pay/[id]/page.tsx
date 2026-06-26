@@ -5,7 +5,7 @@ import { useParams, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge, LoadingSpinner } from "@/components/ui/modal";
-import { StripeEmbeddedCheckout } from "@/components/payment/stripe-embedded-checkout";
+import { StripePaymentForm } from "@/components/payment/stripe-payment-form";
 import { PayPalEmbeddedCheckout } from "@/components/payment/paypal-embedded-checkout";
 import { PaymentBrandHeader, resolveBrand } from "@/components/payment/payment-brand-header";
 import { formatCurrency } from "@/lib/utils";
@@ -31,25 +31,29 @@ interface PaymentLinkData {
 }
 
 interface CheckoutConfig {
-  mode: "demo" | "stripe_embedded" | "paypal_embedded";
+  mode: "demo" | "stripe_payment" | "paypal_embedded";
   clientSecret?: string;
   publishableKey?: string;
+  returnUrl?: string;
   clientId?: string;
   currency?: string;
+  error?: string;
 }
 
 function PayPageContent() {
   const params = useParams();
   const searchParams = useSearchParams();
   const id = params.id as string;
-  const isSuccess = searchParams.get("success") === "true";
+  const redirectStatus = searchParams.get("redirect_status");
   const isCancelled = searchParams.get("cancelled") === "true";
 
   const [link, setLink] = useState<PaymentLinkData | null>(null);
   const [checkout, setCheckout] = useState<CheckoutConfig | null>(null);
+  const [checkoutLoading, setCheckoutLoading] = useState(false);
+  const [checkoutError, setCheckoutError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [paying, setPaying] = useState(false);
-  const [paid, setPaid] = useState(isSuccess);
+  const [paid, setPaid] = useState(false);
 
   useEffect(() => {
     fetch(`/api/payment-links/${id}`)
@@ -57,23 +61,53 @@ function PayPageContent() {
       .then((data) => {
         if (data.error) return;
         setLink(data);
-        if (data.status === "PAID" || isSuccess) setPaid(true);
+        if (data.status === "PAID") setPaid(true);
       })
       .finally(() => setLoading(false));
-  }, [id, isSuccess]);
+  }, [id]);
+
+  useEffect(() => {
+    if (redirectStatus === "failed") {
+      toast.error("Payment was not completed. Please try again.");
+      return;
+    }
+    if (redirectStatus !== "succeeded") return;
+
+    const checkPaid = () =>
+      fetch(`/api/payment-links/${id}`)
+        .then((r) => r.json())
+        .then((data) => {
+          if (data.status === "PAID") setPaid(true);
+          return data.status === "PAID";
+        });
+
+    checkPaid().then((isPaid) => {
+      if (!isPaid) {
+        setTimeout(() => void checkPaid(), 2000);
+      }
+    });
+  }, [id, redirectStatus]);
 
   useEffect(() => {
     if (!link || link.status === "PAID" || paid) return;
 
+    setCheckoutLoading(true);
+    setCheckoutError(null);
+
     fetch(`/api/payment-links/${id}/checkout`, { method: "POST" })
-      .then((r) => r.json())
-      .then((data) => {
-        if (data.error) {
-          toast.error(data.error);
-          return;
+      .then(async (r) => {
+        const data = await r.json();
+        if (!r.ok || data.error) {
+          throw new Error(data.error || "Failed to load payment form");
         }
         setCheckout(data);
-      });
+      })
+      .catch((err) => {
+        const message = err instanceof Error ? err.message : "Failed to load payment form";
+        setCheckoutError(message);
+        toast.error(message);
+      })
+      .finally(() => setCheckoutLoading(false));
   }, [link, id, paid]);
 
   const handleDemoPay = async () => {
@@ -183,13 +217,23 @@ function PayPageContent() {
         </Card>
 
         <Card className="overflow-hidden p-0">
-          {checkout?.mode === "stripe_embedded" && checkout.clientSecret && checkout.publishableKey ? (
-            <div className="p-1">
-              <StripeEmbeddedCheckout
-                clientSecret={checkout.clientSecret}
-                publishableKey={checkout.publishableKey}
-              />
+          {checkoutLoading ? (
+            <div className="flex items-center justify-center p-8">
+              <Loader2 className="h-6 w-6 animate-spin text-indigo-600" />
+              <span className="ml-2 text-slate-500">Loading payment form...</span>
             </div>
+          ) : checkoutError ? (
+            <div className="p-6 text-center">
+              <p className="text-sm text-red-500">{checkoutError}</p>
+              <p className="mt-2 text-xs text-slate-500">Please refresh the page or contact support.</p>
+            </div>
+          ) : checkout?.mode === "stripe_payment" && checkout.clientSecret && checkout.publishableKey ? (
+            <StripePaymentForm
+              clientSecret={checkout.clientSecret}
+              publishableKey={checkout.publishableKey}
+              returnUrl={checkout.returnUrl || `${window.location.origin}/pay/${id}`}
+              onSuccess={() => setPaid(true)}
+            />
           ) : checkout?.mode === "paypal_embedded" && checkout.clientId ? (
             <PayPalEmbeddedCheckout
               paymentLinkId={id}
@@ -213,12 +257,7 @@ function PayPageContent() {
                 Pay {formatCurrency(link.amount, link.currency)}
               </Button>
             </div>
-          ) : (
-            <div className="flex items-center justify-center p-8">
-              <Loader2 className="h-6 w-6 animate-spin text-indigo-600" />
-              <span className="ml-2 text-slate-500">Loading payment form...</span>
-            </div>
-          )}
+          ) : null}
         </Card>
 
         <p className="text-center text-xs text-slate-400">

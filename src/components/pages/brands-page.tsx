@@ -1,12 +1,12 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import Image from "next/image";
-import { Plus, Pencil, Trash2 } from "lucide-react";
+import { Plus, Pencil, Trash2, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { Modal, ModalFooter, ModalForm, Badge, LoadingSpinner, EmptyState } from "@/components/ui/modal";
+import { BrandLogo } from "@/components/ui/brand-logo";
 import { toast } from "sonner";
 
 interface Brand {
@@ -24,6 +24,7 @@ export function BrandsPage() {
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
   const [editBrand, setEditBrand] = useState<Brand | null>(null);
+  const [uploading, setUploading] = useState(false);
   const [form, setForm] = useState({
     name: "",
     logo: "",
@@ -60,6 +61,28 @@ export function BrandsPage() {
       isActive: brand.isActive,
     });
     setModalOpen(true);
+  };
+
+  const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploading(true);
+    try {
+      const body = new FormData();
+      body.append("file", file);
+      const res = await fetch("/api/uploads/brand-logo", { method: "POST", body });
+      const data = await res.json();
+      if (!res.ok) {
+        toast.error(data.error || "Upload failed");
+        return;
+      }
+      setForm((prev) => ({ ...prev, logo: data.url }));
+      toast.success("Logo uploaded");
+    } finally {
+      setUploading(false);
+      e.target.value = "";
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -129,13 +152,7 @@ export function BrandsPage() {
                     style={{ borderColor: brand.primaryColor || undefined }}
                   >
                     {brand.logo ? (
-                      <Image
-                        src={brand.logo}
-                        alt={brand.name}
-                        width={48}
-                        height={48}
-                        className="h-full w-full object-contain p-1"
-                      />
+                      <BrandLogo src={brand.logo} alt={brand.name} size={48} />
                     ) : (
                       <span
                         className="text-lg font-bold text-white"
@@ -174,7 +191,7 @@ export function BrandsPage() {
         open={modalOpen}
         onClose={() => setModalOpen(false)}
         title={editBrand ? "Edit Brand" : "Add Brand"}
-        description="Logo path example: /logo-rename.png (file in public folder)"
+        description="Upload a logo image or paste a URL/path"
         size="lg"
       >
         <ModalForm onSubmit={handleSubmit}>
@@ -184,12 +201,32 @@ export function BrandsPage() {
             onChange={(e) => setForm({ ...form, name: e.target.value })}
             required
           />
-          <Input
-            label="Logo URL or Path"
-            value={form.logo}
-            onChange={(e) => setForm({ ...form, logo: e.target.value })}
-            placeholder="/logo-rename.png"
-          />
+          <div className="space-y-2">
+            <label className="block text-sm font-medium text-slate-700">Brand Logo</label>
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+              <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50">
+                <Upload className="h-4 w-4" />
+                {uploading ? "Uploading..." : "Upload Image"}
+                <input
+                  type="file"
+                  accept="image/png,image/jpeg,image/jpg,image/webp,image/svg+xml"
+                  className="hidden"
+                  onChange={handleLogoUpload}
+                  disabled={uploading}
+                />
+              </label>
+              <span className="text-xs text-slate-500">PNG, JPG, WEBP, SVG — max 1MB</span>
+            </div>
+            <Input
+              label="Or logo URL / path"
+              value={form.logo.startsWith("data:") ? "" : form.logo}
+              onChange={(e) => setForm({ ...form, logo: e.target.value })}
+              placeholder="/logo-rename.png"
+            />
+            {form.logo.startsWith("data:") && (
+              <p className="text-xs text-green-600">Image uploaded successfully</p>
+            )}
+          </div>
           <div className="grid gap-4 sm:grid-cols-2">
             <Input
               label="Primary Color"
@@ -208,7 +245,7 @@ export function BrandsPage() {
             <div className="rounded-lg border border-slate-200 p-4 dark:border-slate-700">
               <p className="mb-2 text-xs text-slate-500">Preview</p>
               <div className="flex items-center gap-3">
-                <Image src={form.logo} alt="Preview" width={40} height={40} className="h-10 w-auto object-contain" />
+                <BrandLogo src={form.logo} alt="Preview" size={40} className="h-10 w-auto object-contain" />
                 <div>
                   <p className="font-semibold" style={{ color: form.primaryColor }}>{form.name || "Brand Name"}</p>
                   <p className="text-xs text-slate-500">{form.tagline || "Secure Payment"}</p>

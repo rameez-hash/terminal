@@ -16,13 +16,51 @@ export function PayPalEmbeddedCheckout({
   currency,
   onSuccess,
 }: PayPalEmbeddedCheckoutProps) {
+  if (!clientId) {
+    return (
+      <p className="p-6 text-sm text-red-500">
+        PayPal client ID is missing. Please contact support.
+      </p>
+    );
+  }
+
+  const createOrder = async () => {
+    const res = await fetch(`/api/payment-links/${paymentLinkId}/paypal/order`, {
+      method: "POST",
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      const message = data.error || "Failed to create PayPal order";
+      toast.error(message);
+      throw new Error(message);
+    }
+    return data.orderId;
+  };
+
+  const onApprove = async (data: { orderID?: string }) => {
+    const res = await fetch(`/api/payment-links/${paymentLinkId}/paypal/capture`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ orderId: data.orderID }),
+    });
+    const result = await res.json();
+    if (!res.ok) {
+      const message = result.error || "Payment capture failed";
+      toast.error(message);
+      throw new Error(message);
+    }
+    toast.success("Payment successful!");
+    onSuccess();
+  };
+
   return (
     <PayPalScriptProvider
       options={{
         clientId,
-        currency,
+        currency: currency.toUpperCase(),
         intent: "capture",
         components: "buttons",
+        enableFunding: "card,venmo,paylater",
       }}
     >
       <div className="p-4">
@@ -33,37 +71,15 @@ export function PayPalEmbeddedCheckout({
             shape: "rect",
             label: "paypal",
           }}
-          createOrder={async () => {
-            const res = await fetch(`/api/payment-links/${paymentLinkId}/paypal/order`, {
-              method: "POST",
-            });
-            const data = await res.json();
-            if (!res.ok) {
-              toast.error(data.error || "Failed to create PayPal order");
-              throw new Error(data.error);
-            }
-            return data.orderId;
+          createOrder={createOrder}
+          onApprove={onApprove}
+          onError={(err) => {
+            console.error("PayPal error:", err);
+            toast.error(
+              "PayPal payment failed. If using a debit/credit card, ensure card payments are enabled in your PayPal business account."
+            );
           }}
-          onApprove={async (data) => {
-            const res = await fetch(`/api/payment-links/${paymentLinkId}/paypal/capture`, {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ orderId: data.orderID }),
-            });
-            const result = await res.json();
-            if (!res.ok) {
-              toast.error(result.error || "Payment capture failed");
-              throw new Error(result.error);
-            }
-            toast.success("Payment successful!");
-            onSuccess();
-          }}
-          onError={() => {
-            toast.error("PayPal payment failed");
-          }}
-          onCancel={() => {
-            toast.error("Payment cancelled");
-          }}
+          onCancel={() => toast.error("Payment cancelled")}
         />
       </div>
     </PayPalScriptProvider>

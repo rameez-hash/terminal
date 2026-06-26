@@ -5,6 +5,12 @@ import { requireAdmin, requireAuth } from "@/lib/auth";
 import { logActivity } from "@/lib/activity";
 import { createNotification } from "@/lib/notifications";
 import { parsePaginationParams, paginatedResponse, getCurrentMonthYear } from "@/lib/utils";
+import {
+  enrichSellerTargets,
+  getSellerMonthlyRevenue,
+  resolveAchievedAmount,
+  enrichTargetMetrics,
+} from "@/lib/payments";
 
 const createTargetSchema = z.object({
   sellerId: z.string(),
@@ -67,7 +73,10 @@ export async function GET(request: Request) {
 
       const rows = sellers.map((seller) => {
         const target = targetBySeller.get(seller.id);
-        const achievedAmount = target?.achievedAmount ?? revenueBySeller.get(seller.id) ?? 0;
+        const transactionTotal = revenueBySeller.get(seller.id) ?? 0;
+        const achievedAmount = target
+          ? resolveAchievedAmount(target.achievedAmount, transactionTotal)
+          : transactionTotal;
         const targetAmount = target?.targetAmount ?? 0;
         const currency = target?.currency ?? "USD";
 
@@ -117,11 +126,27 @@ export async function GET(request: Request) {
       prisma.monthlyTarget.count({ where }),
     ]);
 
-    const enriched = targets.map((t) => ({
-      ...t,
-      completionPercentage: Math.min(100, Math.round((t.achievedAmount / t.targetAmount) * 100)),
-      remainingAmount: Math.max(0, t.targetAmount - t.achievedAmount),
-    }));
+    let enriched;
+    if (user.role === "SELLER") {
+      enriched = await enrichSellerTargets(user.id, targets);
+    } else if (sellerId) {
+      enriched = await enrichSellerTargets(sellerId, targets);
+    } else {
+      enriched = await Promise.all(
+        targets.map(async (target) => {
+          const transactionTotal = await getSellerMonthlyRevenue(
+            target.sellerId,
+            target.month,
+            target.year
+          );
+          const achievedAmount = resolveAchievedAmount(target.achievedAmount, transactionTotal);
+          return {
+            ...target,
+            ...enrichTargetMetrics(target.targetAmount, achievedAmount, target.currency),
+          };
+        })
+      );
+    }
 
     return NextResponse.json(paginatedResponse(enriched, total, page, limit));
   } catch (error) {

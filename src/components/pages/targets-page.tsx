@@ -1,10 +1,12 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { Filter, CheckCircle2, Clock, AlertCircle } from "lucide-react";
+import { Filter, CheckCircle2, Clock, AlertCircle, Plus } from "lucide-react";
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input, Select } from "@/components/ui/input";
-import { LoadingSpinner, EmptyState, Badge } from "@/components/ui/modal";
+import { Button } from "@/components/ui/button";
+import { Modal, ModalFooter, ModalForm, LoadingSpinner, EmptyState, Badge } from "@/components/ui/modal";
+import { toast } from "sonner";
 import {
   formatCurrency,
   formatMonthYear,
@@ -80,6 +82,14 @@ export function TargetsPage({ isAdmin }: { isAdmin?: boolean }) {
   const [month, setMonth] = useState(String(currentMonth));
   const [year, setYear] = useState(String(currentYear));
   const [sellerId, setSellerId] = useState("");
+  const [assignModal, setAssignModal] = useState(false);
+  const [assignForm, setAssignForm] = useState({
+    sellerId: "",
+    month: String(currentMonth),
+    year: String(currentYear),
+    targetAmount: "",
+    currency: "USD",
+  });
 
   const fetchSellers = useCallback(async () => {
     if (!isAdmin) return;
@@ -121,15 +131,63 @@ export function TargetsPage({ isAdmin }: { isAdmin?: boolean }) {
 
   const filteredAdminRows = targets;
 
+  const handleAssignTarget = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const res = await fetch("/api/targets", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        sellerId: assignForm.sellerId,
+        month: parseInt(assignForm.month, 10),
+        year: parseInt(assignForm.year, 10),
+        targetAmount: parseFloat(assignForm.targetAmount),
+        currency: assignForm.currency,
+      }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      toast.error(data.error);
+      return;
+    }
+    toast.success("Monthly target assigned");
+    setAssignModal(false);
+    setAssignForm({
+      sellerId: "",
+      month: String(currentMonth),
+      year: String(currentYear),
+      targetAmount: "",
+      currency: "USD",
+    });
+    fetchTargets();
+  };
+
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold">{isAdmin ? "Monthly Targets" : "My Targets"}</h1>
-        <p className="text-slate-500">
-          {isAdmin
-            ? "View each seller's monthly target and achievement"
-            : "Track your monthly sales targets and achievements"}
-        </p>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h1 className="text-2xl font-bold">{isAdmin ? "Monthly Targets" : "My Targets"}</h1>
+          <p className="text-slate-500">
+            {isAdmin
+              ? "Assign and track each seller's monthly target separately"
+              : "Track your monthly sales targets and achievements"}
+          </p>
+        </div>
+        {isAdmin && (
+          <Button
+            onClick={() => {
+              setAssignForm({
+                sellerId: sellerId || "",
+                month,
+                year,
+                targetAmount: "",
+                currency: "USD",
+              });
+              setAssignModal(true);
+            }}
+          >
+            <Plus className="h-4 w-4" /> Assign Target
+          </Button>
+        )}
       </div>
 
       {isAdmin && (
@@ -333,6 +391,70 @@ export function TargetsPage({ isAdmin }: { isAdmin?: boolean }) {
           </div>
         </Card>
       ) : null}
+
+      {isAdmin && (
+        <Modal
+          open={assignModal}
+          onClose={() => setAssignModal(false)}
+          title="Assign Monthly Target"
+          description="Set a different target for each seller and month"
+          size="lg"
+        >
+          <ModalForm onSubmit={handleAssignTarget}>
+            <Select
+              label="Seller"
+              value={assignForm.sellerId}
+              onChange={(e) => setAssignForm({ ...assignForm, sellerId: e.target.value })}
+              options={[
+                { value: "", label: "Select seller..." },
+                ...sellers.map((s) => ({ value: s.id, label: s.name })),
+              ]}
+              required
+            />
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Select
+                label="Month"
+                value={assignForm.month}
+                onChange={(e) => setAssignForm({ ...assignForm, month: e.target.value })}
+                options={getMonthOptions()}
+              />
+              <Select
+                label="Year"
+                value={assignForm.year}
+                onChange={(e) => setAssignForm({ ...assignForm, year: e.target.value })}
+                options={getYearOptions()}
+              />
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Input
+                label="Target Amount"
+                type="number"
+                step="0.01"
+                min="0"
+                value={assignForm.targetAmount}
+                onChange={(e) => setAssignForm({ ...assignForm, targetAmount: e.target.value })}
+                required
+              />
+              <Select
+                label="Currency"
+                value={assignForm.currency}
+                onChange={(e) => setAssignForm({ ...assignForm, currency: e.target.value })}
+                options={[
+                  { value: "USD", label: "USD" },
+                  { value: "EUR", label: "EUR" },
+                  { value: "GBP", label: "GBP" },
+                ]}
+              />
+            </div>
+            <ModalFooter>
+              <Button variant="secondary" type="button" onClick={() => setAssignModal(false)}>
+                Cancel
+              </Button>
+              <Button type="submit">Assign Target</Button>
+            </ModalFooter>
+          </ModalForm>
+        </Modal>
+      )}
     </div>
   );
 }

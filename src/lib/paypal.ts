@@ -4,9 +4,20 @@ import {
   OrdersController,
   CheckoutPaymentIntent,
   OrderApplicationContextUserAction,
+  OrderApplicationContextShippingPreference,
+  OrderApplicationContextLandingPage,
 } from "@paypal/paypal-server-sdk";
 
 let ordersController: OrdersController | null = null;
+
+function getPayPalEnvironment() {
+  const mode = process.env.PAYPAL_MODE?.toLowerCase();
+  if (mode === "live" || mode === "production") return Environment.Production;
+  if (mode === "sandbox") return Environment.Sandbox;
+  return process.env.NODE_ENV === "production"
+    ? Environment.Production
+    : Environment.Sandbox;
+}
 
 function getOrdersController() {
   if (!ordersController) {
@@ -22,10 +33,7 @@ function getOrdersController() {
         oAuthClientId: clientId,
         oAuthClientSecret: clientSecret,
       },
-      environment:
-        process.env.NODE_ENV === "production"
-          ? Environment.Production
-          : Environment.Sandbox,
+      environment: getPayPalEnvironment(),
     });
 
     ordersController = new OrdersController(paypalClient);
@@ -77,6 +85,8 @@ export async function createPayPalOrder({
         cancelUrl,
         brandName: brandName || "Sales Portal",
         userAction: OrderApplicationContextUserAction.PayNow,
+        shippingPreference: OrderApplicationContextShippingPreference.NoShipping,
+        landingPage: OrderApplicationContextLandingPage.NoPreference,
       },
     },
   });
@@ -106,9 +116,14 @@ export async function verifyPayPalWebhook(
 
   if (!webhookId || !clientId || !clientSecret) return false;
 
+  const apiBase =
+    getPayPalEnvironment() === Environment.Production
+      ? "https://api-m.paypal.com"
+      : "https://api-m.sandbox.paypal.com";
+
   try {
     const response = await fetch(
-      `${process.env.NODE_ENV === "production" ? "https://api-m.paypal.com" : "https://api-m.sandbox.paypal.com"}/v1/notifications/verify-webhook-signature`,
+      `${apiBase}/v1/notifications/verify-webhook-signature`,
       {
         method: "POST",
         headers: {

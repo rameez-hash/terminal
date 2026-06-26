@@ -23,7 +23,6 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
-import { ThemeToggle } from "./theme-toggle";
 import { NotificationBell } from "./notification-bell";
 
 interface NavItem {
@@ -145,7 +144,6 @@ export function DashboardLayout({ children, role, userName }: DashboardLayoutPro
           </button>
           <div className="flex-1" />
           <div className="flex items-center gap-3">
-            <ThemeToggle />
             <NotificationBell />
           </div>
         </header>

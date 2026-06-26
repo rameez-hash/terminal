@@ -26,7 +26,7 @@ export async function POST(request: Request) {
       },
     });
 
-    if (event.event_type === "CHECKOUT.ORDER.APPROVED" || event.event_type === "PAYMENT.CAPTURE.COMPLETED") {
+    if (event.event_type === "PAYMENT.CAPTURE.COMPLETED") {
       const resource = event.resource;
       const paymentLinkId = resource.purchase_units?.[0]?.custom_id || resource.custom_id;
 
