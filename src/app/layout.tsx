@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Montserrat } from "next/font/google";
 import { Providers } from "@/components/providers";
 import "./globals.css";
@@ -14,13 +14,18 @@ export const metadata: Metadata = {
   description: "Enterprise-grade sales tracking platform with Stripe & PayPal integration",
 };
 
+export const viewport: Viewport = {
+  themeColor: "#ffffff",
+  colorScheme: "light",
+};
+
 export default function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${montserrat.variable} h-full`}>
+    <html lang="en" className={`${montserrat.variable} h-full light`} style={{ colorScheme: "light" }}>
       <body className={`${montserrat.className} min-h-full flex flex-col bg-white text-slate-900 antialiased`}>
         <Providers>{children}</Providers>
       </body>

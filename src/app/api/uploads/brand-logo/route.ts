@@ -2,7 +2,15 @@ import { NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/auth";
 
 const MAX_SIZE = 1024 * 1024; // 1MB
-const ALLOWED_TYPES = new Set(["image/png", "image/jpeg", "image/jpg", "image/webp", "image/svg+xml"]);
+const ALLOWED_TYPES = new Set([
+  "image/png",
+  "image/jpeg",
+  "image/jpg",
+  "image/jfif",
+  "image/pjpeg",
+  "image/webp",
+  "image/svg+xml",
+]);
 
 export async function POST(request: Request) {
   try {

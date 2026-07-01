@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { processSuccessfulPayment } from "@/lib/targets";
 import { isDemoMode } from "@/lib/demo";
+import { withBrandLogoUrl } from "@/lib/brands";
 
 export async function GET(
   _request: Request,
@@ -14,7 +15,7 @@ export async function GET(
     include: {
       client: { select: { name: true, email: true } },
       seller: { select: { name: true } },
-      brand: { select: { id: true, name: true, logo: true, primaryColor: true, tagline: true } },
+      brand: { select: { id: true, name: true, logo: true, primaryColor: true, tagline: true, updatedAt: true } },
     },
   });
 
@@ -22,7 +23,10 @@ export async function GET(
     return NextResponse.json({ error: "Payment link not found" }, { status: 404 });
   }
 
-  return NextResponse.json(paymentLink);
+  return NextResponse.json({
+    ...paymentLink,
+    brand: paymentLink.brand ? withBrandLogoUrl(paymentLink.brand) : null,
+  });
 }
 
 export async function POST(

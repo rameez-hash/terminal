@@ -18,7 +18,7 @@ export function resolveBrand(brand?: BrandDisplay | null): BrandDisplay {
   if (!brand?.name) return DEFAULT_BRAND;
   return {
     name: brand.name,
-    logo: brand.logo || DEFAULT_BRAND.logo,
+    logo: brand.logo ?? null,
     primaryColor: brand.primaryColor || DEFAULT_BRAND.primaryColor,
     tagline: brand.tagline || DEFAULT_BRAND.tagline,
   };
@@ -39,27 +39,28 @@ export function PaymentBrandHeader({
 }: PaymentBrandHeaderProps) {
   const resolved = resolveBrand(brand);
   const color = resolved.primaryColor || "#2563eb";
-  const logoSize = size ?? (logoOnly ? 72 : compact ? 36 : 44);
+  const heroHeight = size ?? 80;
 
   if (logoOnly) {
     return (
-      <div
-        className="flex shrink-0 items-center justify-center overflow-hidden rounded-xl bg-white shadow-sm"
-        style={{
-          width: logoSize,
-          height: logoSize,
-          border: `2px solid ${color}18`,
-        }}
-      >
+      <div className="flex items-center justify-center">
         {resolved.logo ? (
-          <BrandLogo src={resolved.logo} alt={resolved.name} size={logoSize} />
+          <div style={{ maxHeight: heroHeight }}>
+            <BrandLogo
+              src={resolved.logo}
+              alt={resolved.name}
+              variant="hero"
+              className="h-full w-auto max-w-[240px] object-contain"
+              style={{ maxHeight: heroHeight }}
+            />
+          </div>
         ) : (
-          <span
-            className="flex h-full w-full items-center justify-center text-xl font-bold text-white"
-            style={{ backgroundColor: color }}
+          <div
+            className="flex items-center justify-center rounded-xl text-2xl font-bold text-white shadow-sm"
+            style={{ backgroundColor: color, width: heroHeight, height: heroHeight }}
           >
             {resolved.name.charAt(0)}
-          </span>
+          </div>
         )}
       </div>
     );

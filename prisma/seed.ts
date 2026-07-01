@@ -56,7 +56,7 @@ async function main() {
     },
   });
 
-  const bmdBrand = await prisma.brand.upsert({
+  await prisma.brand.upsert({
     where: { id: "seed-brand-bmd" },
     update: {
       name: "BMD Digital",
@@ -164,36 +164,8 @@ async function main() {
     },
   });
 
-  await prisma.paymentLink.upsert({
-    where: { id: "seed-link-1" },
-    update: { brandId: bmdBrand.id },
-    create: {
-      id: "seed-link-1",
-      sellerId: seller1.id,
-      clientId: client1.id,
-      brandId: bmdBrand.id,
-      amount: 499.99,
-      currency: "USD",
-      description: "Monthly subscription - Acme Corp",
-      provider: "STRIPE",
-      status: "ACTIVE",
-    },
-  });
-
-  await prisma.paymentLink.upsert({
-    where: { id: "seed-link-2" },
-    update: { brandId: bmdBrand.id },
-    create: {
-      id: "seed-link-2",
-      sellerId: seller2.id,
-      clientId: client2.id,
-      brandId: bmdBrand.id,
-      amount: 1299.0,
-      currency: "USD",
-      description: "Enterprise license - TechStart",
-      provider: "PAYPAL",
-      status: "ACTIVE",
-    },
+  await prisma.paymentLink.deleteMany({
+    where: { id: { in: ["seed-link-1", "seed-link-2"] } },
   });
 
   console.log("Seed completed successfully");
