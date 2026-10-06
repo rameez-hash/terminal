@@ -4,7 +4,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/auth";
 import { logActivity } from "@/lib/activity";
-import { createNotification, notifyAdmins } from "@/lib/notifications";
+import { notifyAdmins } from "@/lib/notifications";
 import { parsePaginationParams, paginatedResponse } from "@/lib/utils";
 
 const createSellerSchema = z.object({
@@ -14,23 +14,17 @@ const createSellerSchema = z.object({
   phone: z.string().optional(),
 });
 
-const updateSellerSchema = z.object({
-  name: z.string().min(2).optional(),
-  email: z.string().email().optional(),
-  phone: z.string().optional(),
-  status: z.enum(["ACTIVE", "SUSPENDED"]).optional(),
-  password: z.string().min(8).optional(),
-});
-
 export async function GET(request: Request) {
   try {
     await requireAdmin();
     const { searchParams } = new URL(request.url);
     const { page, limit, search, skip, sortBy, sortOrder } = parsePaginationParams(searchParams);
     const status = searchParams.get("status");
+    const trash = searchParams.get("trash") === "1";
 
     const where = {
       role: "SELLER" as const,
+      deletedAt: trash ? { not: null } : null,
       ...(status && { status: status as "ACTIVE" | "SUSPENDED" }),
       ...(search && {
         OR: [
@@ -49,10 +43,11 @@ export async function GET(request: Request) {
           email: true,
           phone: true,
           status: true,
+          deletedAt: true,
           createdAt: true,
           _count: { select: { clientsCreated: true, paymentLinks: true, transactions: true } },
         },
-        orderBy: { [sortBy]: sortOrder },
+        orderBy: trash ? { deletedAt: "desc" } : { [sortBy]: sortOrder },
         skip,
         take: limit,
       }),
@@ -75,6 +70,12 @@ export async function POST(request: Request) {
     const email = data.email.trim().toLowerCase();
     const existing = await prisma.user.findUnique({ where: { email } });
     if (existing) {
+      if (existing.deletedAt) {
+        return NextResponse.json(
+          { error: "Email is in seller trash. Restore that seller or permanently delete them first." },
+          { status: 400 }
+        );
+      }
       return NextResponse.json({ error: "Email already exists" }, { status: 400 });
     }
 

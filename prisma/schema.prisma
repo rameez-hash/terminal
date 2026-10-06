@@ -52,6 +52,7 @@ enum ActivityType {
   SELLER_UPDATED
   SELLER_SUSPENDED
   SELLER_DELETED
+  SELLER_RESTORED
 }
 
 enum NotificationType {
@@ -73,6 +74,7 @@ model User {
   phone         String?
   avatar        String?
   emailVerified DateTime?
+  deletedAt     DateTime?
   createdAt     DateTime   @default(now())
   updatedAt     DateTime   @updatedAt
 
@@ -85,6 +87,7 @@ model User {
   activityLogs   ActivityLog[]
   notifications  Notification[]
 
+  @@index([deletedAt])
   @@map("users")
 }
 

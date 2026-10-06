@@ -34,7 +34,7 @@ export async function GET(request: Request) {
       revenueByProvider,
       revenueBySeller,
     ] = await Promise.all([
-      isAdmin ? prisma.user.count({ where: { role: "SELLER", status: "ACTIVE" } }) : Promise.resolve(0),
+      isAdmin ? prisma.user.count({ where: { role: "SELLER", status: "ACTIVE", deletedAt: null } }) : Promise.resolve(0),
       prisma.client.count({
         where: {
           deletedAt: null,

@@ -39,7 +39,7 @@ export async function GET(request: Request) {
       filename = "transactions-report";
     } else if (type === "sellers" && isAdmin) {
       const sellers = await prisma.user.findMany({
-        where: { role: "SELLER" },
+        where: { role: "SELLER", deletedAt: null },
         include: {
           _count: { select: { clientsCreated: true, transactions: true } },
         },

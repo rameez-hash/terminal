@@ -43,6 +43,7 @@ export async function GET(request: Request) {
         prisma.user.findMany({
           where: {
             role: "SELLER",
+            deletedAt: null,
             ...(sellerFilter ? { id: sellerFilter } : {}),
           },
           select: { id: true, name: true, email: true, status: true },
@@ -162,7 +163,7 @@ export async function POST(request: Request) {
     const data = createTargetSchema.parse(body);
 
     const seller = await prisma.user.findFirst({
-      where: { id: data.sellerId, role: "SELLER" },
+      where: { id: data.sellerId, role: "SELLER", deletedAt: null },
     });
     if (!seller) {
       return NextResponse.json({ error: "Seller not found" }, { status: 404 });

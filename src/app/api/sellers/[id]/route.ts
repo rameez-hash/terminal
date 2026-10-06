@@ -13,6 +13,38 @@ const updateSellerSchema = z.object({
   password: z.string().min(8).optional(),
 });
 
+async function hardDeleteSeller(id: string) {
+  await prisma.$transaction(async (tx) => {
+    const clients = await tx.client.findMany({
+      where: { createdBy: id },
+      select: { id: true },
+    });
+    const clientIds = clients.map((c) => c.id);
+
+    await tx.transaction.deleteMany({
+      where: {
+        OR: [
+          { sellerId: id },
+          ...(clientIds.length ? [{ clientId: { in: clientIds } }] : []),
+        ],
+      },
+    });
+
+    await tx.paymentLink.deleteMany({
+      where: {
+        OR: [
+          { sellerId: id },
+          ...(clientIds.length ? [{ clientId: { in: clientIds } }] : []),
+        ],
+      },
+    });
+
+    await tx.client.deleteMany({ where: { createdBy: id } });
+    await tx.activityLog.deleteMany({ where: { userId: id } });
+    await tx.user.delete({ where: { id } });
+  });
+}
+
 export async function GET(
   _request: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -22,7 +54,7 @@ export async function GET(
     const { id } = await params;
 
     const seller = await prisma.user.findFirst({
-      where: { id, role: "SELLER" },
+      where: { id, role: "SELLER", deletedAt: null },
       select: {
         id: true,
         name: true,
@@ -56,7 +88,9 @@ export async function PATCH(
     const body = await request.json();
     const data = updateSellerSchema.parse(body);
 
-    const seller = await prisma.user.findFirst({ where: { id, role: "SELLER" } });
+    const seller = await prisma.user.findFirst({
+      where: { id, role: "SELLER", deletedAt: null },
+    });
     if (!seller) {
       return NextResponse.json({ error: "Seller not found" }, { status: 404 });
     }
@@ -93,56 +127,60 @@ export async function PATCH(
 }
 
 export async function DELETE(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const admin = await requireAdmin();
     const { id } = await params;
+    const { searchParams } = new URL(request.url);
+    const permanent = searchParams.get("permanent") === "1";
 
     const seller = await prisma.user.findFirst({ where: { id, role: "SELLER" } });
     if (!seller) {
       return NextResponse.json({ error: "Seller not found" }, { status: 404 });
     }
 
-    await prisma.$transaction(async (tx) => {
-      const clients = await tx.client.findMany({
-        where: { createdBy: id },
-        select: { id: true },
-      });
-      const clientIds = clients.map((c) => c.id);
+    if (permanent) {
+      if (!seller.deletedAt) {
+        return NextResponse.json(
+          { error: "Move the seller to trash before permanently deleting" },
+          { status: 400 }
+        );
+      }
 
-      await tx.transaction.deleteMany({
-        where: {
-          OR: [
-            { sellerId: id },
-            ...(clientIds.length ? [{ clientId: { in: clientIds } }] : []),
-          ],
-        },
-      });
+      await hardDeleteSeller(id);
 
-      await tx.paymentLink.deleteMany({
-        where: {
-          OR: [
-            { sellerId: id },
-            ...(clientIds.length ? [{ clientId: { in: clientIds } }] : []),
-          ],
-        },
+      await logActivity({
+        userId: admin.id,
+        type: "SELLER_DELETED",
+        description: `Permanently deleted seller ${seller.name}`,
+        metadata: { sellerId: id, permanent: true },
       });
 
-      await tx.client.deleteMany({ where: { createdBy: id } });
-      await tx.activityLog.deleteMany({ where: { userId: id } });
-      await tx.user.delete({ where: { id } });
-    });
+      return NextResponse.json({ message: "Seller permanently deleted" });
+    }
+
+    if (seller.deletedAt) {
+      return NextResponse.json({ error: "Seller is already in trash" }, { status: 400 });
+    }
+
+    await prisma.$transaction([
+      prisma.user.update({
+        where: { id },
+        data: { deletedAt: new Date() },
+      }),
+      prisma.session.deleteMany({ where: { userId: id } }),
+    ]);
 
     await logActivity({
       userId: admin.id,
       type: "SELLER_DELETED",
-      description: `Deleted seller ${seller.name}`,
+      description: `Moved seller ${seller.name} to trash`,
       metadata: { sellerId: id },
     });
 
-    return NextResponse.json({ message: "Seller deleted" });
+    return NextResponse.json({ message: "Seller moved to trash" });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Internal server error";
     const status =

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import Link from "next/link";
 import { Plus, Search, Pencil, Trash2, Ban } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input, Select } from "@/components/ui/input";
@@ -94,14 +95,14 @@ export function SellersPage() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm("Are you sure you want to delete this seller? Their clients, payment links, and transactions will also be removed.")) return;
+    if (!confirm("Move this seller to trash?")) return;
     const res = await fetch(`/api/sellers/${id}`, { method: "DELETE" });
     if (!res.ok) {
       const data = await res.json();
       toast.error(data.error || "Failed to delete seller");
       return;
     }
-    toast.success("Seller deleted");
+    toast.success("Seller moved to trash");
     fetchSellers();
   };
 
@@ -141,9 +142,16 @@ export function SellersPage() {
           <h1 className="text-2xl font-bold">Sellers</h1>
           <p className="text-slate-500">Manage seller accounts and targets</p>
         </div>
-        <Button onClick={() => { setEditSeller(null); setForm({ name: "", email: "", password: "", phone: "" }); setModalOpen(true); }}>
-          <Plus className="h-4 w-4" /> Add Seller
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Link href="/admin/sellers/trash">
+            <Button variant="secondary">
+              <Trash2 className="h-4 w-4" /> Trash
+            </Button>
+          </Link>
+          <Button onClick={() => { setEditSeller(null); setForm({ name: "", email: "", password: "", phone: "" }); setModalOpen(true); }}>
+            <Plus className="h-4 w-4" /> Add Seller
+          </Button>
+        </div>
       </div>
 
       <div className="relative max-w-sm">

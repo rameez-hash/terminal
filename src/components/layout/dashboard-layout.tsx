@@ -35,6 +35,7 @@ interface NavItem {
 const adminNav: NavItem[] = [
   { href: "/admin", label: "Dashboard", icon: <LayoutDashboard className="h-5 w-5" /> },
   { href: "/admin/sellers", label: "Sellers", icon: <Users className="h-5 w-5" /> },
+  { href: "/admin/sellers/trash", label: "Seller Trash", icon: <Trash2 className="h-5 w-5" /> },
   { href: "/admin/clients", label: "Clients", icon: <UserCircle className="h-5 w-5" /> },
   { href: "/admin/clients/trash", label: "Client Trash", icon: <Trash2 className="h-5 w-5" /> },
   { href: "/admin/payment-links", label: "Payment Links", icon: <Link2 className="h-5 w-5" /> },
