@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { Plus, Search, Pencil, Trash2, Ban } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input, Select } from "@/components/ui/input";
+import { Input, Select, PasswordInput } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { Modal, ModalFooter, ModalForm, Badge, Pagination, LoadingSpinner, EmptyState } from "@/components/ui/modal";
 import { toast } from "sonner";
@@ -228,7 +228,7 @@ export function SellersPage() {
         <ModalForm onSubmit={handleSubmit}>
           <Input label="Name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
           <Input label="Email" type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} required disabled={!!editSeller} />
-          <Input label={editSeller ? "New Password (optional)" : "Password"} type="password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} required={!editSeller} />
+          <PasswordInput label={editSeller ? "New Password (optional)" : "Password"} value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} required={!editSeller} />
           <Input label="Phone" type="tel" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
           <ModalFooter>
             <Button variant="secondary" type="button" className="w-full sm:w-auto" onClick={() => setModalOpen(false)}>
