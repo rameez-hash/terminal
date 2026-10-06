@@ -105,7 +105,35 @@ export async function DELETE(
       return NextResponse.json({ error: "Seller not found" }, { status: 404 });
     }
 
-    await prisma.user.delete({ where: { id } });
+    await prisma.$transaction(async (tx) => {
+      const clients = await tx.client.findMany({
+        where: { createdBy: id },
+        select: { id: true },
+      });
+      const clientIds = clients.map((c) => c.id);
+
+      await tx.transaction.deleteMany({
+        where: {
+          OR: [
+            { sellerId: id },
+            ...(clientIds.length ? [{ clientId: { in: clientIds } }] : []),
+          ],
+        },
+      });
+
+      await tx.paymentLink.deleteMany({
+        where: {
+          OR: [
+            { sellerId: id },
+            ...(clientIds.length ? [{ clientId: { in: clientIds } }] : []),
+          ],
+        },
+      });
+
+      await tx.client.deleteMany({ where: { createdBy: id } });
+      await tx.activityLog.deleteMany({ where: { userId: id } });
+      await tx.user.delete({ where: { id } });
+    });
 
     await logActivity({
       userId: admin.id,
@@ -117,6 +145,8 @@ export async function DELETE(
     return NextResponse.json({ message: "Seller deleted" });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Internal server error";
-    return NextResponse.json({ error: message }, { status: message === "Unauthorized" ? 401 : 403 });
+    const status =
+      message === "Unauthorized" ? 401 : message === "Forbidden" ? 403 : 500;
+    return NextResponse.json({ error: message }, { status });
   }
 }

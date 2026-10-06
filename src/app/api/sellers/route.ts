@@ -8,9 +8,9 @@ import { createNotification, notifyAdmins } from "@/lib/notifications";
 import { parsePaginationParams, paginatedResponse } from "@/lib/utils";
 
 const createSellerSchema = z.object({
-  name: z.string().min(2),
-  email: z.string().email(),
-  password: z.string().min(8),
+  name: z.string().min(2, "Name must be at least 2 characters"),
+  email: z.string().email("Enter a valid email"),
+  password: z.string().min(8, "Password must be at least 8 characters"),
   phone: z.string().optional(),
 });
 
@@ -72,7 +72,8 @@ export async function POST(request: Request) {
     const body = await request.json();
     const data = createSellerSchema.parse(body);
 
-    const existing = await prisma.user.findUnique({ where: { email: data.email } });
+    const email = data.email.trim().toLowerCase();
+    const existing = await prisma.user.findUnique({ where: { email } });
     if (existing) {
       return NextResponse.json({ error: "Email already exists" }, { status: 400 });
     }
@@ -80,10 +81,10 @@ export async function POST(request: Request) {
     const hashedPassword = await bcrypt.hash(data.password, 12);
     const seller = await prisma.user.create({
       data: {
-        name: data.name,
-        email: data.email,
+        name: data.name.trim(),
+        email,
         password: hashedPassword,
-        phone: data.phone,
+        phone: data.phone?.trim() || null,
         role: "SELLER",
       },
       select: { id: true, name: true, email: true, phone: true, status: true, createdAt: true },

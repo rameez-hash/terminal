@@ -79,18 +79,28 @@ export function SellersPage() {
 
   const handleSuspend = async (seller: Seller) => {
     const newStatus = seller.status === "ACTIVE" ? "SUSPENDED" : "ACTIVE";
-    await fetch(`/api/sellers/${seller.id}`, {
+    const res = await fetch(`/api/sellers/${seller.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ status: newStatus }),
     });
+    if (!res.ok) {
+      const data = await res.json();
+      toast.error(data.error || "Failed to update seller status");
+      return;
+    }
     toast.success(`Seller ${newStatus === "SUSPENDED" ? "suspended" : "activated"}`);
     fetchSellers();
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm("Are you sure you want to delete this seller?")) return;
-    await fetch(`/api/sellers/${id}`, { method: "DELETE" });
+    if (!confirm("Are you sure you want to delete this seller? Their clients, payment links, and transactions will also be removed.")) return;
+    const res = await fetch(`/api/sellers/${id}`, { method: "DELETE" });
+    if (!res.ok) {
+      const data = await res.json();
+      toast.error(data.error || "Failed to delete seller");
+      return;
+    }
     toast.success("Seller deleted");
     fetchSellers();
   };
