@@ -148,7 +148,7 @@ export function DashboardContent({ role }: DashboardContentProps) {
             <div className="md:col-span-3">
               <div className="h-4 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700">
                 <div
-                  className={`h-full rounded-full transition-all ${currentTarget.completionPercentage >= 100 ? "bg-green-600" : "bg-indigo-600"}`}
+                  className={`h-full rounded-full transition-all ${currentTarget.completionPercentage >= 100 ? "bg-green-600" : "bg-[#2d9a84]"}`}
                   style={{ width: `${currentTarget.completionPercentage}%` }}
                 />
               </div>
@@ -181,7 +181,7 @@ export function DashboardContent({ role }: DashboardContentProps) {
                     key={row.id}
                     className={`border-b border-slate-100 dark:border-slate-800 ${
                       row.month === currentMonth && row.year === currentYear
-                        ? "bg-indigo-50/50 dark:bg-indigo-950/20"
+                        ? "bg-[#e8f8f5]/60"
                         : ""
                     }`}
                   >
@@ -192,7 +192,7 @@ export function DashboardContent({ role }: DashboardContentProps) {
                       <div className="flex items-center gap-2">
                         <div className="h-2 w-24 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700">
                           <div
-                            className={`h-full rounded-full ${row.completionPercentage >= 100 ? "bg-green-600" : "bg-indigo-600"}`}
+                            className={`h-full rounded-full ${row.completionPercentage >= 100 ? "bg-green-600" : "bg-[#2d9a84]"}`}
                             style={{ width: `${Math.min(100, row.completionPercentage)}%` }}
                           />
                         </div>

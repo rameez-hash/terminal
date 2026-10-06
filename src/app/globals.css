@@ -6,7 +6,10 @@
 :root {
   --background: #ffffff;
   --foreground: #0f172a;
-  --border: #e2e8f0;
+  --border: #e8eeec;
+  --brand: #2d9a84;
+  --brand-soft: #e8f8f5;
+  --brand-muted: #5faba0;
   color-scheme: light;
 }
 

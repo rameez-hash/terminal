@@ -76,7 +76,7 @@ export function NotificationBell() {
               {unreadCount > 0 && (
                 <button
                   onClick={markAllRead}
-                  className="rounded-md px-2 py-1 text-xs text-indigo-600 hover:bg-indigo-50 hover:text-indigo-700 dark:hover:bg-indigo-950"
+                  className="rounded-md px-2 py-1 text-xs text-[#2d9a84] hover:bg-[#e8f8f5] hover:text-[#248572]"
                 >
                   Mark all read
                 </button>
@@ -89,7 +89,7 @@ export function NotificationBell() {
                 notifications.map((n) => (
                   <div
                     key={n.id}
-                    className={`border-b border-slate-100 p-4 dark:border-slate-800 ${!n.read ? "bg-indigo-50/50 dark:bg-indigo-950/20" : ""}`}
+                    className={`border-b border-slate-100 p-4 dark:border-slate-800 ${!n.read ? "bg-[#e8f8f5]/70" : ""}`}
                   >
                     <p className="text-sm font-medium text-slate-900 dark:text-slate-100">{n.title}</p>
                     <p className="mt-0.5 text-xs text-slate-500">{n.message}</p>

@@ -44,7 +44,7 @@ export function ActivityPage() {
           <div className="divide-y divide-slate-100 dark:divide-slate-800">
             {logs.map((log) => (
               <div key={log.id} className="flex items-start gap-4 p-4">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-indigo-100 text-indigo-600 dark:bg-indigo-900 dark:text-indigo-400 text-sm font-medium">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#e8f8f5] text-[#2d9a84] text-sm font-medium">
                   {log.user.name.charAt(0)}
                 </div>
                 <div className="flex-1 min-w-0">

@@ -65,7 +65,7 @@ function ProgressBar({ percentage }: { percentage: number }) {
     <div className="flex items-center gap-2">
       <div className="h-2 flex-1 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700">
         <div
-          className={`h-full rounded-full transition-all ${percentage >= 100 ? "bg-green-600" : "bg-indigo-600"}`}
+          className={`h-full rounded-full transition-all ${percentage >= 100 ? "bg-green-600" : "bg-[#2d9a84]"}`}
           style={{ width: `${Math.min(100, percentage)}%` }}
         />
       </div>
@@ -237,7 +237,7 @@ export function TargetsPage({ isAdmin }: { isAdmin?: boolean }) {
       ) : !isAdmin ? (
         <>
           {currentMonthTarget ? (
-            <Card className="border-indigo-200 bg-indigo-50/50 dark:border-indigo-800 dark:bg-indigo-950/30">
+            <Card className="border-[#b8e6da] bg-[#e8f8f5]/60">
               <CardHeader>
                 <CardTitle>Current Month — {formatMonthYear(currentMonth, currentYear)}</CardTitle>
               </CardHeader>
@@ -296,7 +296,7 @@ export function TargetsPage({ isAdmin }: { isAdmin?: boolean }) {
                       key={target.id}
                       className={`border-b border-slate-100 dark:border-slate-800 ${
                         target.month === currentMonth && target.year === currentYear
-                          ? "bg-indigo-50/50 dark:bg-indigo-950/20"
+                          ? "bg-[#e8f8f5]/60"
                           : ""
                       }`}
                     >
