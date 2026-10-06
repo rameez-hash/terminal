@@ -23,7 +23,7 @@ export async function POST(request: Request) {
       user.role === "SUPER_ADMIN" && data.sellerId ? data.sellerId : user.id;
 
     const client = await prisma.client.findUnique({ where: { id: data.clientId } });
-    if (!client) {
+    if (!client || client.deletedAt) {
       return NextResponse.json({ error: "Client not found" }, { status: 404 });
     }
 

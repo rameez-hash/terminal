@@ -20,6 +20,7 @@ import {
   Link2,
   BarChart3,
   Palette,
+  Trash2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
@@ -35,6 +36,7 @@ const adminNav: NavItem[] = [
   { href: "/admin", label: "Dashboard", icon: <LayoutDashboard className="h-5 w-5" /> },
   { href: "/admin/sellers", label: "Sellers", icon: <Users className="h-5 w-5" /> },
   { href: "/admin/clients", label: "Clients", icon: <UserCircle className="h-5 w-5" /> },
+  { href: "/admin/clients/trash", label: "Client Trash", icon: <Trash2 className="h-5 w-5" /> },
   { href: "/admin/payment-links", label: "Payment Links", icon: <Link2 className="h-5 w-5" /> },
   { href: "/admin/brands", label: "Brands", icon: <Palette className="h-5 w-5" /> },
   { href: "/admin/transactions", label: "Transactions", icon: <CreditCard className="h-5 w-5" /> },
@@ -97,7 +99,17 @@ export function DashboardLayout({ children, role, userName }: DashboardLayoutPro
 
         <nav className="flex-1 space-y-1 overflow-y-auto p-4">
           {navItems.map((item) => {
-            const isActive = pathname === item.href || (item.href !== "/admin" && item.href !== "/seller" && pathname.startsWith(item.href));
+            const isActive =
+              pathname === item.href ||
+              (item.href !== "/admin" &&
+                item.href !== "/seller" &&
+                pathname.startsWith(`${item.href}/`) &&
+                !navItems.some(
+                  (other) =>
+                    other.href !== item.href &&
+                    other.href.length > item.href.length &&
+                    (pathname === other.href || pathname.startsWith(`${other.href}/`))
+                ));
             return (
               <Link
                 key={item.href}

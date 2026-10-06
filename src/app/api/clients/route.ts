@@ -27,7 +27,16 @@ export async function GET(request: Request) {
     const { page, limit, search, skip, sortBy, sortOrder } = parsePaginationParams(searchParams);
     const sellerId = searchParams.get("sellerId");
 
+    const trash = searchParams.get("trash") === "1";
+    if (trash) {
+      const session = await auth();
+      if (session?.user?.role !== "SUPER_ADMIN") {
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      }
+    }
+
     const where = {
+      deletedAt: trash ? { not: null } : null,
       ...(sellerId && { createdBy: sellerId }),
       ...(search && {
         OR: [

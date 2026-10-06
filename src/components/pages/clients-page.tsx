@@ -1,13 +1,14 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { Plus, Search, Pencil, ExternalLink } from "lucide-react";
+import Link from "next/link";
+import { Plus, Search, Pencil, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input, Select, Textarea } from "@/components/ui/input";
+import { Input, Textarea } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
-import { Modal, ModalFooter, ModalForm, Badge, Pagination, LoadingSpinner, EmptyState } from "@/components/ui/modal";
+import { Modal, ModalFooter, ModalForm, Pagination, LoadingSpinner, EmptyState } from "@/components/ui/modal";
 import { toast } from "sonner";
-import { formatCurrency, formatDate } from "@/lib/utils";
+import { formatDate } from "@/lib/utils";
 
 interface Client {
   id: string;
@@ -149,6 +150,20 @@ export function ClientsPage({ canEditAll, userId }: ClientsPageProps) {
     setModalOpen(true);
   };
 
+  const handleDelete = async (client: Client) => {
+    if (!confirm(`Move "${client.name}" to trash?`)) return;
+
+    const res = await fetch(`/api/clients/${client.id}`, { method: "DELETE" });
+    const data = await res.json();
+    if (!res.ok) {
+      toast.error(data.error || "Failed to delete client");
+      return;
+    }
+
+    toast.success("Client moved to trash");
+    fetchClients();
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -156,9 +171,18 @@ export function ClientsPage({ canEditAll, userId }: ClientsPageProps) {
           <h1 className="text-2xl font-bold">Clients</h1>
           <p className="text-slate-500">Manage client information</p>
         </div>
-        <Button onClick={openCreate}>
-          <Plus className="h-4 w-4" /> Add Client
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          {canEditAll && (
+            <Link href="/admin/clients/trash">
+              <Button variant="secondary">
+                <Trash2 className="h-4 w-4" /> Trash
+              </Button>
+            </Link>
+          )}
+          <Button onClick={openCreate}>
+            <Plus className="h-4 w-4" /> Add Client
+          </Button>
+        </div>
       </div>
 
       <div className="relative max-w-sm">
@@ -198,10 +222,15 @@ export function ClientsPage({ canEditAll, userId }: ClientsPageProps) {
                     <td className="px-4 py-3">{client.creator.name}</td>
                     <td className="px-4 py-3 text-slate-500">{formatDate(client.createdAt)}</td>
                     <td className="px-4 py-3">
-                      <div className="flex justify-end">
+                      <div className="flex justify-end gap-1">
                         {canEdit(client) && (
                           <Button size="sm" variant="ghost" onClick={() => openEdit(client)}>
                             <Pencil className="h-4 w-4" />
+                          </Button>
+                        )}
+                        {canEditAll && (
+                          <Button size="sm" variant="ghost" onClick={() => handleDelete(client)}>
+                            <Trash2 className="h-4 w-4 text-red-500" />
                           </Button>
                         )}
                       </div>

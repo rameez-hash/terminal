@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
-import { requireAuth } from "@/lib/auth";
+import { requireAuth, requireAdmin } from "@/lib/auth";
 import { logActivity } from "@/lib/activity";
 import {
   duplicateClientMessage,
@@ -36,7 +36,7 @@ export async function GET(
       },
     });
 
-    if (!client) {
+    if (!client || client.deletedAt) {
       return NextResponse.json({ error: "Client not found" }, { status: 404 });
     }
 
@@ -58,7 +58,7 @@ export async function PATCH(
     const data = updateClientSchema.parse(body);
 
     const client = await prisma.client.findUnique({ where: { id } });
-    if (!client) {
+    if (!client || client.deletedAt) {
       return NextResponse.json({ error: "Client not found" }, { status: 404 });
     }
 
@@ -107,5 +107,80 @@ export async function PATCH(
     }
     const message = error instanceof Error ? error.message : "Internal server error";
     return NextResponse.json({ error: message }, { status: message === "Unauthorized" ? 401 : message === "Forbidden" ? 403 : 500 });
+  }
+}
+
+export async function DELETE(
+  request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const admin = await requireAdmin();
+    const { id } = await params;
+    const { searchParams } = new URL(request.url);
+    const permanent = searchParams.get("permanent") === "1";
+
+    const client = await prisma.client.findUnique({
+      where: { id },
+      include: { _count: { select: { paymentLinks: true, transactions: true } } },
+    });
+
+    if (!client) {
+      return NextResponse.json({ error: "Client not found" }, { status: 404 });
+    }
+
+    if (permanent) {
+      if (!client.deletedAt) {
+        return NextResponse.json(
+          { error: "Move the client to trash before permanently deleting" },
+          { status: 400 }
+        );
+      }
+
+      if (client._count.paymentLinks > 0 || client._count.transactions > 0) {
+        return NextResponse.json(
+          {
+            error:
+              "Cannot permanently delete a client with payment links or transactions. Keep them in trash.",
+          },
+          { status: 409 }
+        );
+      }
+
+      await prisma.client.delete({ where: { id } });
+
+      await logActivity({
+        userId: admin.id,
+        type: "CLIENT_DELETED",
+        description: `Permanently deleted client ${client.name}`,
+        metadata: { clientId: id, permanent: true },
+      });
+
+      return NextResponse.json({ message: "Client permanently deleted" });
+    }
+
+    if (client.deletedAt) {
+      return NextResponse.json({ error: "Client is already in trash" }, { status: 400 });
+    }
+
+    await prisma.client.update({
+      where: { id },
+      data: { deletedAt: new Date() },
+    });
+
+    await logActivity({
+      userId: admin.id,
+      type: "CLIENT_DELETED",
+      description: `Moved client ${client.name} to trash`,
+      metadata: { clientId: id },
+    });
+
+    return NextResponse.json({ message: "Client moved to trash" });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Internal server error";
+    return NextResponse.json(
+      { error: message },
+      { status: message === "Unauthorized" ? 401 : message === "Forbidden" ? 403 : 500 }
+    );
   }
 }

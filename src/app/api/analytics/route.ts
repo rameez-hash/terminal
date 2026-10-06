@@ -35,7 +35,12 @@ export async function GET(request: Request) {
       revenueBySeller,
     ] = await Promise.all([
       isAdmin ? prisma.user.count({ where: { role: "SELLER", status: "ACTIVE" } }) : Promise.resolve(0),
-      prisma.client.count({ where: sellerId ? { createdBy: sellerId } : undefined }),
+      prisma.client.count({
+        where: {
+          deletedAt: null,
+          ...(sellerId ? { createdBy: sellerId } : {}),
+        },
+      }),
       prisma.transaction.aggregate({
         where: { status: "COMPLETED", ...sellerFilter },
         _sum: { amount: true },

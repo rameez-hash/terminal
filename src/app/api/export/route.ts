@@ -55,7 +55,10 @@ export async function GET(request: Request) {
       filename = "sellers-report";
     } else if (type === "clients") {
       const clients = await prisma.client.findMany({
-        where: isAdmin ? {} : { createdBy: user.id },
+        where: {
+          deletedAt: null,
+          ...(isAdmin ? {} : { createdBy: user.id }),
+        },
         include: { creator: { select: { name: true } } },
       });
       data = clients.map((c) => ({

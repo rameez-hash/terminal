@@ -27,7 +27,7 @@ export async function recordManualPayment({
     prisma.user.findUnique({ where: { id: sellerId }, select: { id: true, name: true } }),
   ]);
 
-  if (!client) throw new Error("Client not found");
+  if (!client || client.deletedAt) throw new Error("Client not found");
   if (!seller) throw new Error("Seller not found");
 
   if (paymentLinkId) {

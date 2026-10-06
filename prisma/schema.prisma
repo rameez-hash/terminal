@@ -42,6 +42,8 @@ enum ActivityType {
   LOGOUT
   CLIENT_CREATED
   CLIENT_UPDATED
+  CLIENT_DELETED
+  CLIENT_RESTORED
   PAYMENT_LINK_CREATED
   PAYMENT_SUCCESS
   TARGET_ASSIGNED
@@ -136,7 +138,7 @@ model PasswordResetToken {
 }
 
 model Client {
-  id        String   @id @default(cuid())
+  id        String    @id @default(cuid())
   name      String
   email     String
   phone     String?
@@ -144,8 +146,9 @@ model Client {
   country   String?
   notes     String?
   createdBy String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  deletedAt DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
 
   creator      User          @relation("ClientCreator", fields: [createdBy], references: [id])
   paymentLinks PaymentLink[]
@@ -153,6 +156,7 @@ model Client {
 
   @@index([createdBy])
   @@index([email])
+  @@index([deletedAt])
   @@map("clients")
 }
 

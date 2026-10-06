@@ -8,6 +8,8 @@ export function normalizePhone(phone: string) {
   return phone.trim().replace(/[\s\-()]/g, "");
 }
 
+const activeClientFilter = { deletedAt: null };
+
 export async function findClientDuplicate(
   email: string,
   phone?: string | null,
@@ -18,6 +20,7 @@ export async function findClientDuplicate(
 
   const emailMatch = await prisma.client.findFirst({
     where: {
+      ...activeClientFilter,
       ...(excludeId && { id: { not: excludeId } }),
       email: normalizedEmail,
     },
@@ -28,6 +31,7 @@ export async function findClientDuplicate(
     try {
       const caseInsensitiveMatch = await prisma.client.findFirst({
         where: {
+          ...activeClientFilter,
           ...(excludeId && { id: { not: excludeId } }),
           email: { equals: normalizedEmail, mode: "insensitive" },
         },
@@ -51,6 +55,7 @@ export async function findClientDuplicate(
 
   const clientsWithPhone = await prisma.client.findMany({
     where: {
+      ...activeClientFilter,
       ...(excludeId && { id: { not: excludeId } }),
       phone: { not: null },
     },
