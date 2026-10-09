@@ -21,7 +21,6 @@ interface PaymentLinkData {
   status: string;
   externalUrl?: string;
   client: { name: string; email: string };
-  seller: { name: string };
   brand?: {
     name: string;
     logo?: string | null;

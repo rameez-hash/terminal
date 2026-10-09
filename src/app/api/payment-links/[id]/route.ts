@@ -10,12 +10,30 @@ export async function GET(
 ) {
   const { id } = await params;
 
+  // Public pay page: never expose seller identity to the client
   const paymentLink = await prisma.paymentLink.findUnique({
     where: { id },
-    include: {
+    select: {
+      id: true,
+      amount: true,
+      currency: true,
+      description: true,
+      provider: true,
+      status: true,
+      externalUrl: true,
+      expiresAt: true,
+      createdAt: true,
       client: { select: { name: true, email: true } },
-      seller: { select: { name: true } },
-      brand: { select: { id: true, name: true, logo: true, primaryColor: true, tagline: true, updatedAt: true } },
+      brand: {
+        select: {
+          id: true,
+          name: true,
+          logo: true,
+          primaryColor: true,
+          tagline: true,
+          updatedAt: true,
+        },
+      },
     },
   });
 
