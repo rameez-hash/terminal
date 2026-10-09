@@ -54,6 +54,8 @@ function PayPageContent() {
   const [loading, setLoading] = useState(true);
   const [paying, setPaying] = useState(false);
   const [paid, setPaid] = useState(false);
+  const [confirming, setConfirming] = useState(false);
+  const justSucceeded = redirectStatus === "succeeded";
 
   useEffect(() => {
     fetch(`/api/payment-links/${id}`)
@@ -73,17 +75,26 @@ function PayPageContent() {
     }
     if (redirectStatus !== "succeeded") return;
 
+    setConfirming(true);
     const checkPaid = () =>
       fetch(`/api/payment-links/${id}`)
         .then((r) => r.json())
         .then((data) => {
-          if (data.status === "PAID") setPaid(true);
-          return data.status === "PAID";
+          if (data.status === "PAID") {
+            setLink((prev) => (prev ? { ...prev, status: "PAID" } : prev));
+            setPaid(true);
+            return true;
+          }
+          return false;
         });
 
     checkPaid().then((isPaid) => {
       if (!isPaid) {
-        setTimeout(() => void checkPaid(), 2000);
+        setTimeout(() => {
+          void checkPaid().finally(() => setConfirming(false));
+        }, 2000);
+      } else {
+        setConfirming(false);
       }
     });
   }, [id, redirectStatus]);
@@ -98,6 +109,11 @@ function PayPageContent() {
       .then(async (r) => {
         const data = await r.json();
         if (!r.ok || data.error) {
+          if (String(data.error || "").toLowerCase().includes("already paid")) {
+            setPaid(true);
+            setLink((prev) => (prev ? { ...prev, status: "PAID" } : prev));
+            return;
+          }
           throw new Error(data.error || "Failed to load payment form");
         }
         setCheckout(data);
@@ -150,6 +166,7 @@ function PayPageContent() {
   const accentColor = brand.primaryColor || "#2563eb";
 
   if (paid || link.status === "PAID") {
+    const alreadyPaid = link.status === "PAID" && !justSucceeded;
     return (
       <div className="flex min-h-screen items-center justify-center bg-slate-50 p-4">
         <Card className="w-full max-w-md p-10 text-center shadow-lg">
@@ -157,11 +174,22 @@ function PayPageContent() {
             <PaymentBrandHeader brand={brand} logoOnly size={80} />
           </div>
           <CheckCircle className="mx-auto h-16 w-16 text-green-500" />
-          <h1 className="mt-4 text-2xl font-bold text-slate-900">Payment Successful!</h1>
+          <h1 className="mt-4 text-2xl font-bold text-slate-900">
+            {alreadyPaid ? "Already Paid" : "Thank You!"}
+          </h1>
           <p className="mt-2 text-slate-600">
-            {formatCurrency(link.amount, link.currency)} paid successfully
+            {alreadyPaid
+              ? `This payment link is already paid — ${formatCurrency(link.amount, link.currency)}.`
+              : `${formatCurrency(link.amount, link.currency)} paid successfully.`}
           </p>
-          <p className="mt-1 text-sm text-slate-400">Thank you for your payment</p>
+          <p className="mt-1 text-sm text-slate-400">
+            {alreadyPaid
+              ? "No further payment is required on this link."
+              : "Your payment has been received. You can close this page."}
+          </p>
+          {confirming && !alreadyPaid && (
+            <p className="mt-4 text-xs text-slate-400">Confirming payment…</p>
+          )}
         </Card>
       </div>
     );

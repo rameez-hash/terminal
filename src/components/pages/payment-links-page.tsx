@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { Plus, Search, ExternalLink, Copy, Banknote } from "lucide-react";
+import { Plus, Search, ExternalLink, Copy, Banknote, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input, Select } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
@@ -52,6 +52,7 @@ export function PaymentLinksPage({ isAdmin }: { isAdmin?: boolean }) {
   const [newClient, setNewClient] = useState({ name: "", email: "", phone: "" });
   const [newClientErrors, setNewClientErrors] = useState<{ email?: string; phone?: string }>({});
   const [submitting, setSubmitting] = useState(false);
+  const [syncingId, setSyncingId] = useState<string | null>(null);
 
   const resetModal = () => {
     setClientMode("existing");
@@ -222,6 +223,26 @@ export function PaymentLinksPage({ isAdmin }: { isAdmin?: boolean }) {
     fetchLinks();
   };
 
+  const handleSyncPayment = async (linkId: string) => {
+    setSyncingId(linkId);
+    try {
+      const res = await fetch(`/api/payment-links/${linkId}/sync`, { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) {
+        toast.error(data.error || "Failed to refresh payment status");
+        return;
+      }
+      if (data.paid) {
+        toast.success(data.message || "Payment recorded");
+        fetchLinks();
+      } else {
+        toast.info(data.message || "Payment not found yet");
+      }
+    } finally {
+      setSyncingId(null);
+    }
+  };
+
   const statusVariant = (status: string) => {
     switch (status) {
       case "ACTIVE": return "info" as const;
@@ -312,17 +333,30 @@ export function PaymentLinksPage({ isAdmin }: { isAdmin?: boolean }) {
                     <td className="px-4 py-3 text-slate-500">{formatDate(link.createdAt)}</td>
                     <td className="px-4 py-3">
                       <div className="flex justify-end gap-1">
-                        {link.externalUrl && link.status === "ACTIVE" && (
+                        {link.externalUrl && (
                           <>
                             <Button size="sm" variant="ghost" onClick={() => copyLink(link.externalUrl!)} title="Copy link">
                               <Copy className="h-4 w-4" />
                             </Button>
+                            <a href={link.externalUrl} target="_blank" rel="noopener noreferrer">
+                              <Button size="sm" variant="ghost" title="Open link"><ExternalLink className="h-4 w-4" /></Button>
+                            </a>
+                          </>
+                        )}
+                        {link.status === "ACTIVE" && (
+                          <>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => handleSyncPayment(link.id)}
+                              title="Refresh payment status from Stripe/PayPal"
+                              loading={syncingId === link.id}
+                            >
+                              <RefreshCw className="h-4 w-4" />
+                            </Button>
                             <Button size="sm" variant="ghost" onClick={() => handleManualPay(link.id)} title="Record manual payment">
                               <Banknote className="h-4 w-4" />
                             </Button>
-                            <a href={link.externalUrl} target="_blank" rel="noopener noreferrer">
-                              <Button size="sm" variant="ghost"><ExternalLink className="h-4 w-4" /></Button>
-                            </a>
                           </>
                         )}
                       </div>

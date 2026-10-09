@@ -106,6 +106,12 @@ export async function capturePayPalOrder(orderId: string) {
   return response.result;
 }
 
+export async function getPayPalOrder(orderId: string) {
+  const controller = getOrdersController();
+  const response = await controller.getOrder({ id: orderId });
+  return response.result;
+}
+
 export async function verifyPayPalWebhook(
   headers: Record<string, string>,
   body: string
