@@ -24,6 +24,7 @@ export async function createStripePaymentIntent({
   paymentLinkId,
   clientEmail,
   brandName,
+  idempotencyKey,
 }: {
   amount: number;
   currency: string;
@@ -31,18 +32,22 @@ export async function createStripePaymentIntent({
   paymentLinkId: string;
   clientEmail: string;
   brandName?: string;
+  idempotencyKey?: string;
 }) {
   const stripe = getStripe();
-  const paymentIntent = await stripe.paymentIntents.create({
-    amount: Math.round(amount * 100),
-    currency: currency.toLowerCase(),
-    receipt_email: clientEmail,
-    description: brandName
-      ? `${brandName} — ${description || "Payment"}`
-      : description || "Payment",
-    metadata: { paymentLinkId },
-    automatic_payment_methods: { enabled: true },
-  });
+  const paymentIntent = await stripe.paymentIntents.create(
+    {
+      amount: Math.round(amount * 100),
+      currency: currency.toLowerCase(),
+      receipt_email: clientEmail,
+      description: brandName
+        ? `${brandName} — ${description || "Payment"}`
+        : description || "Payment",
+      metadata: { paymentLinkId },
+      automatic_payment_methods: { enabled: true },
+    },
+    idempotencyKey ? { idempotencyKey } : undefined
+  );
 
   if (!paymentIntent.client_secret) {
     throw new Error("Failed to create Stripe payment intent");

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { verifyStripeWebhook } from "@/lib/stripe";
 import { processSuccessfulPayment } from "@/lib/targets";
+import { cancelOpenStripeIntents } from "@/lib/stripe-payment-link";
 
 export async function POST(request: Request) {
   const body = await request.text();
@@ -38,6 +39,11 @@ export async function POST(request: Request) {
           externalId: session.id,
           metadata: { sessionId: session.id },
         });
+        const paymentIntentId =
+          typeof session.payment_intent === "string"
+            ? session.payment_intent
+            : session.payment_intent?.id;
+        await cancelOpenStripeIntents(paymentLinkId, paymentIntentId);
       }
     }
 
@@ -57,6 +63,7 @@ export async function POST(request: Request) {
           externalId: paymentIntent.id,
           metadata: { paymentIntentId: paymentIntent.id },
         });
+        await cancelOpenStripeIntents(paymentLinkId, paymentIntent.id);
       }
     }
 

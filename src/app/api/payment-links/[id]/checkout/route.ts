@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { createStripePaymentIntent, hasStripeConfig } from "@/lib/stripe";
+import { hasStripeConfig } from "@/lib/stripe";
+import { prepareStripeCheckout } from "@/lib/stripe-payment-link";
 import { hasPayPalConfig, getPayPalClientId } from "@/lib/paypal";
 import { isDemoMode } from "@/lib/demo";
 import { getBaseUrl } from "@/lib/utils";
@@ -50,26 +51,17 @@ export async function POST(
         );
       }
 
-      const paymentIntent = await createStripePaymentIntent({
-        amount: paymentLink.amount,
-        currency: paymentLink.currency,
-        description: paymentLink.description || undefined,
-        paymentLinkId: paymentLink.id,
-        clientEmail: paymentLink.client.email,
-        brandName: paymentLink.brand?.name,
-      });
-
-      await prisma.paymentLink.update({
-        where: { id },
-        data: {
-          stripeSessionId: paymentIntent.id,
-          externalId: paymentIntent.id,
-        },
-      });
+      const prepared = await prepareStripeCheckout(paymentLink);
+      if ("alreadyPaid" in prepared && prepared.alreadyPaid) {
+        return NextResponse.json({ alreadyPaid: true });
+      }
+      if ("processing" in prepared && prepared.processing) {
+        return NextResponse.json({ mode: "processing" });
+      }
 
       return NextResponse.json({
         mode: "stripe_payment",
-        clientSecret: paymentIntent.client_secret,
+        clientSecret: prepared.clientSecret,
         publishableKey,
         returnUrl: `${baseUrl}/pay/${id}`,
       });

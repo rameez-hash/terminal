@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth } from "@/lib/auth";
-import { getStripe, hasStripeConfig } from "@/lib/stripe";
+import { hasStripeConfig } from "@/lib/stripe";
+import { syncStripePaymentLink } from "@/lib/stripe-payment-link";
 import { capturePayPalOrder, getPayPalOrder, hasPayPalConfig } from "@/lib/paypal";
 import { processSuccessfulPayment } from "@/lib/targets";
 
@@ -39,61 +40,16 @@ export async function POST(
         return NextResponse.json({ error: "Stripe is not configured" }, { status: 503 });
       }
 
-      const stripe = getStripe();
-      const candidateIds = [paymentLink.externalId, paymentLink.stripeSessionId].filter(
-        (v): v is string => !!v
-      );
-
-      for (const intentId of candidateIds) {
-        try {
-          const paymentIntent = await stripe.paymentIntents.retrieve(intentId);
-          if (paymentIntent.status === "succeeded") {
-            const amount = (paymentIntent.amount_received || paymentIntent.amount || 0) / 100;
-            const currency = (paymentIntent.currency || paymentLink.currency).toUpperCase();
-            const transaction = await processSuccessfulPayment({
-              paymentLinkId: id,
-              amount: amount || paymentLink.amount,
-              currency,
-              provider: "STRIPE",
-              externalId: paymentIntent.id,
-              metadata: { synced: true, paymentIntentId: paymentIntent.id },
-            });
-            return NextResponse.json({
-              paid: true,
-              message: "Payment synced from Stripe",
-              transaction,
-            });
-          }
-        } catch {
-          // try next id / search
-        }
-      }
-
-      try {
-        const search = await stripe.paymentIntents.search({
-          query: `metadata["paymentLinkId"]:"${id}" AND status:"succeeded"`,
-          limit: 5,
+      const synced = await syncStripePaymentLink(id);
+      if (synced.paid) {
+        return NextResponse.json({
+          paid: true,
+          alreadyPaid: "alreadyPaid" in synced ? synced.alreadyPaid : false,
+          message: "alreadyPaid" in synced && synced.alreadyPaid
+            ? "Payment already recorded"
+            : "Payment synced from Stripe",
+          transaction: "transaction" in synced ? synced.transaction : undefined,
         });
-        const matched = search.data[0];
-        if (matched) {
-          const amount = (matched.amount_received || matched.amount || 0) / 100;
-          const currency = (matched.currency || paymentLink.currency).toUpperCase();
-          const transaction = await processSuccessfulPayment({
-            paymentLinkId: id,
-            amount: amount || paymentLink.amount,
-            currency,
-            provider: "STRIPE",
-            externalId: matched.id,
-            metadata: { synced: true, paymentIntentId: matched.id, via: "search" },
-          });
-          return NextResponse.json({
-            paid: true,
-            message: "Payment synced from Stripe",
-            transaction,
-          });
-        }
-      } catch {
-        // Search may be unavailable on some Stripe accounts
       }
 
       return NextResponse.json({

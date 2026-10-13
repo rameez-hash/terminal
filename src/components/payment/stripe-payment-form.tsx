@@ -25,18 +25,24 @@ function CheckoutForm({ returnUrl, onSuccess }: { returnUrl: string; onSuccess?:
     setLoading(true);
     setError(null);
 
-    const { error: submitError } = await stripe.confirmPayment({
+    const { error: submitError, paymentIntent } = await stripe.confirmPayment({
       elements,
       confirmParams: { return_url: returnUrl },
+      redirect: "if_required",
     });
 
     if (submitError) {
-      setError(submitError.message || "Payment failed");
+      setError(submitError.message || "Payment failed. Please try again.");
       setLoading(false);
       return;
     }
 
-    onSuccess?.();
+    if (paymentIntent?.status === "succeeded" || paymentIntent?.status === "processing") {
+      await onSuccess?.();
+      return;
+    }
+
+    setError("Payment was not completed. Please try again.");
     setLoading(false);
   };
 

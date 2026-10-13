@@ -53,8 +53,33 @@ function PayPageContent() {
   const [loading, setLoading] = useState(true);
   const [paying, setPaying] = useState(false);
   const [paid, setPaid] = useState(false);
-  const [confirming, setConfirming] = useState(false);
+  const [confirming, setConfirming] = useState(redirectStatus === "succeeded");
   const justSucceeded = redirectStatus === "succeeded";
+
+  const markPaid = () => {
+    setLink((prev) => (prev ? { ...prev, status: "PAID" } : prev));
+    setPaid(true);
+    setConfirming(false);
+  };
+
+  const confirmPayment = async () => {
+    setConfirming(true);
+    for (let attempt = 0; attempt < 6; attempt += 1) {
+      try {
+        const res = await fetch(`/api/payment-links/${id}/confirm`, { method: "POST" });
+        const data = await res.json();
+        if (data.paid) {
+          markPaid();
+          return true;
+        }
+      } catch {
+        // Retry while Stripe finishes recording the payment.
+      }
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+    }
+    setConfirming(true);
+    return false;
+  };
 
   useEffect(() => {
     fetch(`/api/payment-links/${id}`)
@@ -74,32 +99,19 @@ function PayPageContent() {
     }
     if (redirectStatus !== "succeeded") return;
 
-    setConfirming(true);
-    const checkPaid = () =>
-      fetch(`/api/payment-links/${id}`)
-        .then((r) => r.json())
-        .then((data) => {
-          if (data.status === "PAID") {
-            setLink((prev) => (prev ? { ...prev, status: "PAID" } : prev));
-            setPaid(true);
-            return true;
-          }
-          return false;
-        });
-
-    checkPaid().then((isPaid) => {
-      if (!isPaid) {
-        setTimeout(() => {
-          void checkPaid().finally(() => setConfirming(false));
-        }, 2000);
-      } else {
-        setConfirming(false);
-      }
+    let cancelled = false;
+    void confirmPayment().then((isPaid) => {
+      if (cancelled) return;
+      if (!isPaid) setConfirming(true);
     });
+
+    return () => {
+      cancelled = true;
+    };
   }, [id, redirectStatus]);
 
   useEffect(() => {
-    if (!link || link.status === "PAID" || paid) return;
+    if (!link || link.status === "PAID" || paid || confirming) return;
 
     setCheckoutLoading(true);
     setCheckoutError(null);
@@ -107,12 +119,15 @@ function PayPageContent() {
     fetch(`/api/payment-links/${id}/checkout`, { method: "POST" })
       .then(async (r) => {
         const data = await r.json();
+        if (data.alreadyPaid || String(data.error || "").toLowerCase().includes("already paid")) {
+          markPaid();
+          return;
+        }
+        if (data.mode === "processing") {
+          void confirmPayment();
+          return;
+        }
         if (!r.ok || data.error) {
-          if (String(data.error || "").toLowerCase().includes("already paid")) {
-            setPaid(true);
-            setLink((prev) => (prev ? { ...prev, status: "PAID" } : prev));
-            return;
-          }
           throw new Error(data.error || "Failed to load payment form");
         }
         setCheckout(data);
@@ -123,7 +138,7 @@ function PayPageContent() {
         toast.error(message);
       })
       .finally(() => setCheckoutLoading(false));
-  }, [link, id, paid]);
+  }, [link, id, paid, confirming]);
 
   const handleDemoPay = async () => {
     setPaying(true);
@@ -194,6 +209,26 @@ function PayPageContent() {
     );
   }
 
+  if (confirming) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-slate-50 p-4">
+        <Card className="w-full max-w-md p-10 text-center shadow-lg">
+          <div className="mb-6 flex justify-center">
+            <PaymentBrandHeader brand={brand} logoOnly size={80} />
+          </div>
+          <Loader2 className="mx-auto h-12 w-12 animate-spin text-green-600" />
+          <h1 className="mt-4 text-2xl font-bold text-slate-900">Confirming your payment</h1>
+          <p className="mt-2 text-slate-600">
+            Please wait. Do not pay again.
+          </p>
+          <Button className="mt-6" variant="outline" onClick={() => void confirmPayment()}>
+            Check again
+          </Button>
+        </Card>
+      </div>
+    );
+  }
+
   if (isCancelled) {
     toast.error("Payment was cancelled");
   }
@@ -215,7 +250,7 @@ function PayPageContent() {
           clientSecret={checkout.clientSecret}
           publishableKey={checkout.publishableKey}
           returnUrl={checkout.returnUrl || `${window.location.origin}/pay/${id}`}
-          onSuccess={() => setPaid(true)}
+          onSuccess={() => confirmPayment()}
         />
       ) : checkout?.mode === "paypal_embedded" && checkout.clientId ? (
         <PayPalEmbeddedCheckout

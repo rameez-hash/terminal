@@ -76,37 +76,49 @@ export async function processSuccessfulPayment({
 
   if (!paymentLink) throw new Error("Payment link not found");
 
-  if (paymentLink.status === "PAID") {
-    const existing = await prisma.transaction.findFirst({
-      where: { paymentLinkId, status: "COMPLETED" },
+  let created = false;
+  const transaction = await prisma.$transaction(async (tx) => {
+    created = false;
+
+    await tx.paymentLink.updateMany({
+      where: { id: paymentLinkId, status: { not: "PAID" } },
+      data: { status: "PAID" },
+    });
+
+    const existing = await tx.transaction.findFirst({
+      where: {
+        status: "COMPLETED",
+        OR: [{ externalId }, { paymentLinkId }],
+      },
       orderBy: { createdAt: "desc" },
     });
+
     if (existing) return existing;
-  }
 
-  const existing = await prisma.transaction.findFirst({
-    where: { externalId, status: "COMPLETED" },
-  });
-  if (existing) return existing;
+    created = true;
+    const createdTx = await tx.transaction.create({
+      data: {
+        sellerId: paymentLink.sellerId,
+        clientId: paymentLink.clientId,
+        paymentLinkId: paymentLink.id,
+        amount,
+        currency,
+        provider,
+        status: "COMPLETED",
+        externalId,
+        metadata: toJson(metadata),
+      },
+    });
 
-  const transaction = await prisma.transaction.create({
-    data: {
-      sellerId: paymentLink.sellerId,
-      clientId: paymentLink.clientId,
-      paymentLinkId: paymentLink.id,
-      amount,
-      currency,
-      provider,
-      status: "COMPLETED",
-      externalId,
-      metadata: toJson(metadata),
-    },
+    await tx.paymentLink.update({
+      where: { id: paymentLinkId },
+      data: { status: "PAID" },
+    });
+
+    return createdTx;
   });
 
-  await prisma.paymentLink.update({
-    where: { id: paymentLinkId },
-    data: { status: "PAID" },
-  });
+  if (!created) return transaction;
 
   await updateTargetProgress(paymentLink.sellerId, amount, currency);
 
