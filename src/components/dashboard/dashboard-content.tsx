@@ -81,7 +81,7 @@ export function DashboardContent({ role }: DashboardContentProps) {
         <p className="text-sm text-slate-500">Overview of your sales performance</p>
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid items-start gap-3 sm:grid-cols-2 lg:grid-cols-4">
         {isAdmin && (
           <StatCard title="Total Sellers" value={stats.totalSellers} icon={<Users className="h-4 w-4" />} />
         )}
