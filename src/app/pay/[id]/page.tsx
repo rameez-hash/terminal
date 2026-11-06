@@ -10,7 +10,7 @@ import { PayPalEmbeddedCheckout } from "@/components/payment/paypal-embedded-che
 import { PaymentBrandHeader, resolveBrand } from "@/components/payment/payment-brand-header";
 import { formatCurrency } from "@/lib/utils";
 import { toast } from "sonner";
-import { CreditCard, CheckCircle, Loader2, Lock } from "lucide-react";
+import { CreditCard, CheckCircle, Loader2, Lock, FileText } from "lucide-react";
 
 interface PaymentLinkData {
   id: string;
@@ -203,6 +203,23 @@ function PayPageContent() {
           </p>
           {confirming && !alreadyPaid && (
             <p className="mt-4 text-xs text-slate-400">Confirming payment…</p>
+          )}
+          {!confirming && (
+            <Button
+              type="button"
+              variant="outline"
+              className="mt-6"
+              onClick={() =>
+                window.open(
+                  `/api/payment-links/${id}/invoice`,
+                  "_blank",
+                  "noopener,noreferrer"
+                )
+              }
+            >
+              <FileText className="h-4 w-4" />
+              Download Invoice
+            </Button>
           )}
         </Card>
       </div>

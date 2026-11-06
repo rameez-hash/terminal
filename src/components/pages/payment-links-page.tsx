@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { Plus, Search, ExternalLink, Copy, Banknote, RefreshCw } from "lucide-react";
+import { Plus, Search, ExternalLink, Copy, Banknote, RefreshCw, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input, Select } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
@@ -342,6 +342,22 @@ export function PaymentLinksPage({ isAdmin }: { isAdmin?: boolean }) {
                               <Button size="sm" variant="ghost" title="Open link"><ExternalLink className="h-4 w-4" /></Button>
                             </a>
                           </>
+                        )}
+                        {link.status === "PAID" && (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() =>
+                              window.open(
+                                `/api/payment-links/${link.id}/invoice`,
+                                "_blank",
+                                "noopener,noreferrer"
+                              )
+                            }
+                            title="Download invoice"
+                          >
+                            <FileText className="h-4 w-4" />
+                          </Button>
                         )}
                         {link.status === "ACTIVE" && (
                           <>

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { Download, Plus } from "lucide-react";
+import { Download, FileText, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input, Select } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
@@ -76,6 +76,10 @@ export function TransactionsPage({ isAdmin }: { isAdmin?: boolean }) {
 
   const exportData = (format: string) => {
     window.open(`/api/export?type=transactions&format=${format}`, "_blank");
+  };
+
+  const downloadInvoice = (transactionId: string) => {
+    window.open(`/api/transactions/${transactionId}/invoice`, "_blank", "noopener,noreferrer");
   };
 
   const handleManualPayment = async (e: React.FormEvent) => {
@@ -158,6 +162,7 @@ export function TransactionsPage({ isAdmin }: { isAdmin?: boolean }) {
                   <th className="px-4 py-3 text-left font-medium">Amount</th>
                   <th className="px-4 py-3 text-left font-medium">Provider</th>
                   <th className="px-4 py-3 text-left font-medium">Status</th>
+                  <th className="px-4 py-3 text-right font-medium">Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -177,6 +182,21 @@ export function TransactionsPage({ isAdmin }: { isAdmin?: boolean }) {
                     </td>
                     <td className="px-4 py-3">
                       <Badge variant={tx.status === "COMPLETED" ? "success" : "warning"}>{tx.status}</Badge>
+                    </td>
+                    <td className="px-4 py-3">
+                      {tx.status === "COMPLETED" && (
+                        <div className="flex justify-end">
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => downloadInvoice(tx.id)}
+                            title="Download invoice"
+                          >
+                            <FileText className="h-4 w-4" />
+                            Invoice
+                          </Button>
+                        </div>
+                      )}
                     </td>
                   </tr>
                 ))}
