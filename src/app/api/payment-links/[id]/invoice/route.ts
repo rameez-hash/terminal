@@ -20,7 +20,7 @@ export async function GET(
       );
     }
 
-    return invoicePdfResponse(result.invoice);
+    return await invoicePdfResponse(result.invoice);
   } catch (error) {
     console.error("Payment link invoice error:", error);
     return NextResponse.json({ error: "Failed to generate invoice" }, { status: 500 });

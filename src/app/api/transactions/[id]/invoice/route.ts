@@ -26,7 +26,7 @@ export async function GET(
       );
     }
 
-    return invoicePdfResponse(result.invoice);
+    return await invoicePdfResponse(result.invoice);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Failed to generate invoice";
     return NextResponse.json(
