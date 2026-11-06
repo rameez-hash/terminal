@@ -433,7 +433,7 @@ export async function buildInvoicePdf(invoice: InvoiceData) {
   doc.rect(14, headerBottom + 4, pageWidth - 28, 0.45, "F");
 
   const contentTop = headerBottom + 14;
-  const valueX = 148;
+  const valueX = 132;
   const valueWidth = pageWidth - 14 - valueX;
 
   setInvoiceFont(doc, "bold", 8);
@@ -475,12 +475,24 @@ export async function buildInvoicePdf(invoice: InvoiceData) {
     setInvoiceFont(doc, "normal", 8);
     doc.setTextColor(...muted);
     doc.text(label, valueX - 3, metaY, { align: "right" });
-    setInvoiceFont(doc, "bold", label === "Payment Reference" ? 8 : 9);
+    setInvoiceFont(doc, "bold", 9);
     if (label === "Status") doc.setTextColor(...PAID_GREEN);
     else doc.setTextColor(...ink);
-    const lines = doc.splitTextToSize(String(value), valueWidth);
-    doc.text(lines, valueX, metaY);
-    metaY += Math.max(7.2, lines.length * 4.2 + 3);
+    const text = String(value);
+    if (label === "Payment Reference") {
+      let size = 8;
+      setInvoiceFont(doc, "bold", size);
+      while (doc.getTextWidth(text) > valueWidth && size > 6.5) {
+        size -= 0.2;
+        doc.setFontSize(size);
+      }
+      doc.text(text, valueX, metaY);
+      metaY += 7.2;
+    } else {
+      const lines = doc.splitTextToSize(text, valueWidth);
+      doc.text(lines, valueX, metaY);
+      metaY += Math.max(7.2, lines.length * 4.2 + 3);
+    }
   });
 
   const tableStart = Math.max(contentTop + 8 + billTo.length * 5.8, metaY) + 10;
