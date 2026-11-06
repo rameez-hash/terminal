@@ -47,16 +47,6 @@ function invoiceNumberFor(transactionId: string) {
   return `INV-${transactionId.slice(-10).toUpperCase()}`;
 }
 
-function hexToRgb(hex?: string | null): [number, number, number] {
-  const clean = (hex || "#2d9a84").replace("#", "");
-  if (clean.length !== 6 || /[^0-9a-f]/i.test(clean)) return [45, 154, 132];
-  return [
-    parseInt(clean.slice(0, 2), 16),
-    parseInt(clean.slice(2, 4), 16),
-    parseInt(clean.slice(4, 6), 16),
-  ];
-}
-
 function mixWithWhite(rgb: [number, number, number], amount: number): [number, number, number] {
   return rgb.map((channel) => Math.round(channel + (255 - channel) * amount)) as [
     number,
@@ -265,6 +255,23 @@ function storedLogoToBuffer(logo: string): Buffer | null {
   return null;
 }
 
+function invoiceAssetPath(fileName: string) {
+  return [
+    path.join(process.cwd(), "src", "invoice-assets", fileName),
+    path.join(process.cwd(), "public", "invoice-assets", fileName),
+  ].find((candidate) => fs.existsSync(candidate));
+}
+
+function bundledChicagoLogo(): PdfImage | null {
+  const file = invoiceAssetPath("chicago-publishers.png");
+  if (!file) return null;
+  return { format: "PNG", data: fs.readFileSync(file).toString("base64") };
+}
+
+function isChicagoBrand(brand?: InvoiceData["brand"] | null) {
+  return (brand?.name || "").toLowerCase().includes("chicago");
+}
+
 async function brandLogoToPng(logo?: string | null): Promise<PdfImage | null> {
   if (!logo) return null;
 
@@ -294,6 +301,14 @@ async function brandLogoToPng(logo?: string | null): Promise<PdfImage | null> {
   }
 
   return null;
+}
+
+async function resolveInvoiceLogo(brand?: InvoiceData["brand"] | null): Promise<PdfImage | null> {
+  if (isChicagoBrand(brand)) {
+    const bundled = bundledChicagoLogo();
+    if (bundled) return bundled;
+  }
+  return brandLogoToPng(brand?.logo);
 }
 
 function fontPath(fileName: string) {
@@ -366,11 +381,12 @@ export async function buildInvoicePdf(invoice: InvoiceData) {
   const doc = new jsPDF({ unit: "mm", format: "a4" });
   registerMontserrat(doc);
 
-  const accent = hexToRgb(invoice.brand?.primaryColor);
-  const accentSoft = mixWithWhite(accent, 0.88);
+  const ink: [number, number, number] = [15, 23, 42];
+  const muted: [number, number, number] = [100, 116, 139];
+  const inkSoft = mixWithWhite(ink, 0.93);
   const brandName = invoice.brand?.name || "Invoice";
   const pageWidth = doc.internal.pageSize.getWidth();
-  const logo = await brandLogoToPng(invoice.brand?.logo);
+  const logo = await resolveInvoiceLogo(invoice.brand);
 
   drawPaidBackgroundStamp(doc);
 
@@ -382,17 +398,17 @@ export async function buildInvoicePdf(invoice: InvoiceData) {
     } catch (error) {
       console.error("Invoice logo embed failed:", error);
       setInvoiceFont(doc, "bold", 18);
-      doc.setTextColor(15, 23, 42);
+      doc.setTextColor(...ink);
       doc.text(brandName, 14, 22);
       headerBottom = 22;
     }
   } else {
     setInvoiceFont(doc, "bold", 18);
-    doc.setTextColor(15, 23, 42);
+    doc.setTextColor(...ink);
     doc.text(brandName, 14, 22);
     if (invoice.brand?.tagline) {
       setInvoiceFont(doc, "normal", 9);
-      doc.setTextColor(100, 116, 139);
+      doc.setTextColor(...muted);
       doc.text(invoice.brand.tagline, 14, 28);
       headerBottom = 30;
     } else {
@@ -401,7 +417,7 @@ export async function buildInvoicePdf(invoice: InvoiceData) {
   }
 
   setInvoiceFont(doc, "bold", 22);
-  doc.setTextColor(...accent);
+  doc.setTextColor(...ink);
   doc.text("INVOICE", pageWidth - 14, 20, { align: "right" });
 
   const paidLabel = "PAID";
@@ -413,13 +429,16 @@ export async function buildInvoicePdf(invoice: InvoiceData) {
   doc.text(paidLabel, pageWidth - 14 - paidWidth / 2, 28.8, { align: "center" });
 
   headerBottom = Math.max(headerBottom, 34);
-  doc.setFillColor(...accent);
-  doc.rect(14, headerBottom + 4, pageWidth - 28, 0.8, "F");
+  doc.setFillColor(...ink);
+  doc.rect(14, headerBottom + 4, pageWidth - 28, 0.45, "F");
 
-  const contentTop = headerBottom + 16;
-  setInvoiceFont(doc, "bold", 10);
-  doc.setTextColor(15, 23, 42);
-  doc.text("Bill To", 14, contentTop);
+  const contentTop = headerBottom + 14;
+  const valueX = 148;
+  const valueWidth = pageWidth - 14 - valueX;
+
+  setInvoiceFont(doc, "bold", 8);
+  doc.setTextColor(...muted);
+  doc.text("BILL TO", 14, contentTop);
 
   const billTo = [
     invoice.client.name,
@@ -429,19 +448,18 @@ export async function buildInvoicePdf(invoice: InvoiceData) {
     invoice.client.country,
   ].filter((value): value is string => !!value && value.trim().length > 0);
 
-  setInvoiceFont(doc, "normal", 10);
   billTo.forEach((line, index) => {
+    const y = contentTop + 8 + index * 5.8;
     if (index === 0) {
-      setInvoiceFont(doc, "bold", 11);
-      doc.setTextColor(15, 23, 42);
+      setInvoiceFont(doc, "bold", 12);
+      doc.setTextColor(...ink);
     } else {
       setInvoiceFont(doc, "normal", 9);
-      doc.setTextColor(71, 85, 105);
+      doc.setTextColor(51, 65, 85);
     }
-    doc.text(line, 14, contentTop + 7 + index * 5.5);
+    doc.text(line, 14, y);
   });
 
-  const metaX = 118;
   const meta = [
     ["Invoice Number", invoice.invoiceNumber],
     ["Payment Date", formatDate(invoice.paidAt)],
@@ -452,19 +470,20 @@ export async function buildInvoicePdf(invoice: InvoiceData) {
     meta.push(["Payment Reference", invoice.paymentReference]);
   }
 
-  meta.forEach(([label, value], index) => {
-    const y = contentTop + index * 9;
+  let metaY = contentTop;
+  meta.forEach(([label, value]) => {
     setInvoiceFont(doc, "normal", 8);
-    doc.setTextColor(100, 116, 139);
-    doc.text(label, metaX, y);
-    setInvoiceFont(doc, "bold", 9);
+    doc.setTextColor(...muted);
+    doc.text(label, valueX - 3, metaY, { align: "right" });
+    setInvoiceFont(doc, "bold", label === "Payment Reference" ? 8 : 9);
     if (label === "Status") doc.setTextColor(...PAID_GREEN);
-    else doc.setTextColor(15, 23, 42);
-    const lines = doc.splitTextToSize(String(value), 78);
-    doc.text(lines, metaX, y + 4);
+    else doc.setTextColor(...ink);
+    const lines = doc.splitTextToSize(String(value), valueWidth);
+    doc.text(lines, valueX, metaY);
+    metaY += Math.max(7.2, lines.length * 4.2 + 3);
   });
 
-  const tableStart = Math.max(contentTop + billTo.length * 5.5 + 16, contentTop + meta.length * 9 + 8);
+  const tableStart = Math.max(contentTop + 8 + billTo.length * 5.8, metaY) + 10;
 
   autoTable(doc, {
     startY: tableStart,
@@ -474,7 +493,7 @@ export async function buildInvoicePdf(invoice: InvoiceData) {
     theme: "plain",
     margin: { left: 14, right: 14 },
     headStyles: {
-      fillColor: accent,
+      fillColor: ink,
       textColor: [255, 255, 255],
       font: doc.getFontList()[FONT_NAME] ? FONT_NAME : "helvetica",
       fontStyle: "bold",
@@ -484,12 +503,12 @@ export async function buildInvoicePdf(invoice: InvoiceData) {
     bodyStyles: {
       font: doc.getFontList()[FONT_NAME] ? FONT_NAME : "helvetica",
       fontSize: 10,
-      textColor: [15, 23, 42],
+      textColor: ink,
       cellPadding: { top: 7, bottom: 7, left: 5, right: 5 },
     },
     footStyles: {
-      fillColor: accentSoft,
-      textColor: [15, 23, 42],
+      fillColor: inkSoft,
+      textColor: ink,
       font: doc.getFontList()[FONT_NAME] ? FONT_NAME : "helvetica",
       fontStyle: "bold",
       fontSize: 10,
