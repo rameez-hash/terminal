@@ -37,7 +37,10 @@ export type InvoiceData = {
   };
 };
 
-type PdfImage = { data: string; format: "PNG" | "JPEG" | "WEBP" | "GIF" };
+type PdfImage = { data: string; format: "PNG" | "JPEG" };
+
+const PAID_GREEN: [number, number, number] = [22, 163, 74];
+const PAID_GREEN_SOFT = mixWithWhite(PAID_GREEN, 0.88);
 
 function invoiceNumberFor(transactionId: string) {
   return `INV-${transactionId.slice(-10).toUpperCase()}`;
@@ -163,21 +166,19 @@ export async function getPaymentLinkInvoice(paymentLinkId: string) {
   return { paymentLink, invoice: invoiceFromTransaction(transaction), transaction };
 }
 
-function mimeToFormat(mime: string): PdfImage["format"] | null {
-  const type = mime.toLowerCase().split(";")[0].trim();
-  if (type === "image/png") return "PNG";
-  if (type === "image/jpeg" || type === "image/jpg" || type === "image/pjpeg" || type === "image/jfif") {
-    return "JPEG";
+async function flattenLogoForPdf(buffer: Buffer): Promise<PdfImage | null> {
+  if (!buffer.length) return null;
+  try {
+    const sharp = (await import("sharp")).default;
+    const png = await sharp(buffer)
+      .rotate()
+      .flatten({ background: { r: 255, g: 255, b: 255 } })
+      .png()
+      .toBuffer();
+    return { format: "PNG", data: png.toString("base64") };
+  } catch {
+    return null;
   }
-  if (type === "image/webp") return "WEBP";
-  if (type === "image/gif") return "GIF";
-  return null;
-}
-
-function imageFromBuffer(buffer: Buffer, mime: string): PdfImage | null {
-  const format = mimeToFormat(mime);
-  if (!format || buffer.length === 0) return null;
-  return { format, data: buffer.toString("base64") };
 }
 
 /** Same stored brand.logo value the pay page serves through /api/brands/[id]/logo */
@@ -185,17 +186,16 @@ async function resolvePayPageBrandLogo(logo?: string | null): Promise<PdfImage |
   if (!logo) return null;
 
   if (logo.startsWith("data:")) {
-    const match = logo.match(/^data:([^;,]+);base64,(.+)$/i);
+    const match = logo.match(/^data:([^;,]+)(?:;charset=[^;,]+)?;base64,(.+)$/i);
     if (!match) return null;
-    return imageFromBuffer(Buffer.from(match[2], "base64"), match[1]);
+    return flattenLogoForPdf(Buffer.from(match[2], "base64"));
   }
 
   if (logo.startsWith("http://") || logo.startsWith("https://")) {
     try {
       const response = await fetch(logo);
       if (!response.ok) return null;
-      const mime = response.headers.get("content-type") || "image/png";
-      return imageFromBuffer(Buffer.from(await response.arrayBuffer()), mime);
+      return flattenLogoForPdf(Buffer.from(await response.arrayBuffer()));
     } catch {
       return null;
     }
@@ -204,16 +204,7 @@ async function resolvePayPageBrandLogo(logo?: string | null): Promise<PdfImage |
   const relative = logo.replace(/^\//, "").split("?")[0];
   const publicPath = path.join(process.cwd(), "public", relative);
   if (fs.existsSync(publicPath)) {
-    const ext = path.extname(publicPath).toLowerCase();
-    const mime =
-      ext === ".jpg" || ext === ".jpeg"
-        ? "image/jpeg"
-        : ext === ".webp"
-          ? "image/webp"
-          : ext === ".gif"
-            ? "image/gif"
-            : "image/png";
-    return imageFromBuffer(fs.readFileSync(publicPath), mime);
+    return flattenLogoForPdf(fs.readFileSync(publicPath));
   }
 
   return null;
@@ -255,6 +246,8 @@ function drawBrandLogo(doc: jsPDF, image: PdfImage, x: number, y: number, maxW: 
     height = maxH;
     width = height * ratio;
   }
+  doc.setFillColor(255, 255, 255);
+  doc.rect(x, y, width, height, "F");
   doc.addImage(dataUrl, image.format, x, y, width, height);
   return { width, height };
 }
@@ -272,8 +265,8 @@ export async function buildInvoicePdf(invoice: InvoiceData) {
   let headerBottom = 18;
   if (logo) {
     try {
-      const placed = drawBrandLogo(doc, logo, 14, 12, 72, 22);
-      headerBottom = Math.max(headerBottom, 12 + placed.height);
+      const placed = drawBrandLogo(doc, logo, 14, 10, 95, 32);
+      headerBottom = Math.max(headerBottom, 10 + placed.height);
     } catch {
       setInvoiceFont(doc, "bold", 18);
       doc.setTextColor(15, 23, 42);
@@ -301,7 +294,7 @@ export async function buildInvoicePdf(invoice: InvoiceData) {
   const paidLabel = "PAID";
   setInvoiceFont(doc, "bold", 8);
   const paidWidth = doc.getTextWidth(paidLabel) + 8;
-  doc.setFillColor(...accent);
+  doc.setFillColor(...PAID_GREEN);
   doc.roundedRect(pageWidth - 14 - paidWidth, 24, paidWidth, 7, 1.5, 1.5, "F");
   doc.setTextColor(255, 255, 255);
   doc.text(paidLabel, pageWidth - 14 - paidWidth / 2, 28.8, { align: "center" });
@@ -352,7 +345,8 @@ export async function buildInvoicePdf(invoice: InvoiceData) {
     doc.setTextColor(100, 116, 139);
     doc.text(label, metaX, y);
     setInvoiceFont(doc, "bold", 9);
-    doc.setTextColor(15, 23, 42);
+    if (label === "Status") doc.setTextColor(...PAID_GREEN);
+    else doc.setTextColor(15, 23, 42);
     const lines = doc.splitTextToSize(String(value), 78);
     doc.text(lines, metaX, y + 4);
   });
@@ -396,10 +390,10 @@ export async function buildInvoicePdf(invoice: InvoiceData) {
   const tableEnd =
     (doc as jsPDF & { lastAutoTable?: { finalY: number } }).lastAutoTable?.finalY || tableStart + 30;
 
-  doc.setFillColor(...accentSoft);
+  doc.setFillColor(...PAID_GREEN_SOFT);
   doc.roundedRect(14, tableEnd + 12, pageWidth - 28, 16, 2, 2, "F");
   setInvoiceFont(doc, "bold", 11);
-  doc.setTextColor(...accent);
+  doc.setTextColor(...PAID_GREEN);
   doc.text("This invoice has been paid in full.", pageWidth / 2, tableEnd + 22, {
     align: "center",
   });
