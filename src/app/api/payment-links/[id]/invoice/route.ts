@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { getPaymentLinkInvoice, invoicePdfResponse } from "@/lib/invoice";
 
+export const runtime = "nodejs";
+
 export async function GET(
   _request: Request,
   { params }: { params: Promise<{ id: string }> }
