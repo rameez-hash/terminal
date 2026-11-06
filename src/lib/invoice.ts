@@ -1,9 +1,9 @@
 import fs from "fs";
 import path from "path";
 import { NextResponse } from "next/server";
-import { GState, jsPDF } from "jspdf";
+import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
-import sharp from "sharp";
+import { convertIndexedToRgb, decode, encode } from "fast-png";
 import { prisma } from "@/lib/prisma";
 import { formatCurrency, formatDate } from "@/lib/utils";
 
@@ -167,6 +167,73 @@ export async function getPaymentLinkInvoice(paymentLinkId: string) {
   return { paymentLink, invoice: invoiceFromTransaction(transaction), transaction };
 }
 
+function detectImageFormat(buffer: Buffer): "png" | "jpeg" | "webp" | "svg" | null {
+  if (buffer.length >= 8 && buffer[0] === 0x89 && buffer[1] === 0x50 && buffer[2] === 0x4e && buffer[3] === 0x47) {
+    return "png";
+  }
+  if (buffer.length >= 3 && buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff) {
+    return "jpeg";
+  }
+  if (
+    buffer.length >= 12 &&
+    buffer.toString("ascii", 0, 4) === "RIFF" &&
+    buffer.toString("ascii", 8, 12) === "WEBP"
+  ) {
+    return "webp";
+  }
+  const head = buffer.subarray(0, 80).toString("utf8").trimStart().toLowerCase();
+  if (head.startsWith("<svg") || head.startsWith("<?xml")) return "svg";
+  return null;
+}
+
+function flattenPngForPdf(buffer: Buffer): Buffer {
+  const png = decode(buffer);
+  let channels = png.channels;
+  let data: Uint8Array = Uint8Array.from(png.data);
+
+  if (png.palette) {
+    data = convertIndexedToRgb(png);
+    channels = png.transparency ? 4 : 3;
+  }
+
+  const pixels = png.width * png.height;
+  const rgba = new Uint8Array(pixels * 4);
+
+  for (let i = 0; i < pixels; i++) {
+    const di = i * 4;
+    if (channels === 4) {
+      const si = i * 4;
+      const alpha = data[si + 3] / 255;
+      rgba[di] = Math.round(data[si] * alpha + 255 * (1 - alpha));
+      rgba[di + 1] = Math.round(data[si + 1] * alpha + 255 * (1 - alpha));
+      rgba[di + 2] = Math.round(data[si + 2] * alpha + 255 * (1 - alpha));
+      rgba[di + 3] = 255;
+    } else if (channels === 3) {
+      const si = i * 3;
+      rgba[di] = data[si];
+      rgba[di + 1] = data[si + 1];
+      rgba[di + 2] = data[si + 2];
+      rgba[di + 3] = 255;
+    } else if (channels === 2) {
+      const gray = data[i * 2];
+      const alpha = data[i * 2 + 1] / 255;
+      const value = Math.round(gray * alpha + 255 * (1 - alpha));
+      rgba[di] = value;
+      rgba[di + 1] = value;
+      rgba[di + 2] = value;
+      rgba[di + 3] = 255;
+    } else {
+      const gray = data[i];
+      rgba[di] = gray;
+      rgba[di + 1] = gray;
+      rgba[di + 2] = gray;
+      rgba[di + 3] = 255;
+    }
+  }
+
+  return Buffer.from(encode({ width: png.width, height: png.height, data: rgba, channels: 4, depth: 8 }));
+}
+
 function storedLogoToBuffer(logo: string): Buffer | null {
   if (logo.startsWith("data:")) {
     const marker = "base64,";
@@ -215,17 +282,18 @@ async function brandLogoToPng(logo?: string | null): Promise<PdfImage | null> {
   if (!buffer?.length) return null;
 
   try {
-    const png = await sharp(buffer)
-      .rotate()
-      .ensureAlpha()
-      .flatten({ background: { r: 255, g: 255, b: 255 } })
-      .png({ compressionLevel: 9 })
-      .toBuffer();
-    return { format: "PNG", data: png.toString("base64") };
+    const format = detectImageFormat(buffer);
+    if (format === "jpeg") {
+      return { format: "JPEG", data: buffer.toString("base64") };
+    }
+    if (format === "png") {
+      return { format: "PNG", data: flattenPngForPdf(buffer).toString("base64") };
+    }
   } catch (error) {
     console.error("Invoice logo convert failed:", error);
-    return null;
   }
+
+  return null;
 }
 
 function fontPath(fileName: string) {
@@ -255,18 +323,27 @@ function setInvoiceFont(doc: jsPDF, style: "normal" | "bold", size?: number) {
 }
 
 function drawPaidBackgroundStamp(doc: jsPDF) {
-  const pageWidth = doc.internal.pageSize.getWidth();
-  const pageHeight = doc.internal.pageSize.getHeight();
+  try {
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
 
-  doc.saveGraphicsState();
-  doc.setGState(new GState({ opacity: 0.14 }));
-  setInvoiceFont(doc, "bold", 108);
-  doc.setTextColor(...PAID_GREEN);
-  doc.text("PAID", pageWidth / 2, pageHeight / 2 + 10, {
-    align: "center",
-    angle: 32,
-  });
-  doc.restoreGraphicsState();
+    doc.saveGraphicsState();
+    doc.setGState(doc.GState({ opacity: 0.14 }));
+    setInvoiceFont(doc, "bold", 108);
+    doc.setTextColor(...PAID_GREEN);
+    doc.text("PAID", pageWidth / 2, pageHeight / 2 + 10, {
+      align: "center",
+      angle: 32,
+    });
+    doc.restoreGraphicsState();
+  } catch (error) {
+    console.error("Invoice PAID stamp failed:", error);
+    try {
+      doc.restoreGraphicsState();
+    } catch {
+      // Keep generating the invoice even if the watermark fails.
+    }
+  }
 }
 
 function drawBrandLogo(doc: jsPDF, image: PdfImage, x: number, y: number, maxW: number, maxH: number) {
@@ -441,7 +518,7 @@ export async function buildInvoicePdf(invoice: InvoiceData) {
 
 export async function invoicePdfResponse(invoice: InvoiceData) {
   const pdfBuffer = await buildInvoicePdf(invoice);
-  return new NextResponse(pdfBuffer, {
+  return new NextResponse(new Uint8Array(pdfBuffer), {
     headers: {
       "Content-Type": "application/pdf",
       "Content-Disposition": `attachment; filename="${invoice.invoiceNumber}.pdf"`,
