@@ -73,50 +73,50 @@ export function DashboardContent({ role }: DashboardContentProps) {
   const { month: currentMonth, year: currentYear } = getCurrentMonthYear();
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       <div>
-        <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">
+        <h1 className="text-xl font-semibold text-slate-900 dark:text-slate-100">
           {isAdmin ? "Admin Dashboard" : "Seller Dashboard"}
         </h1>
-        <p className="text-slate-500">Overview of your sales performance</p>
+        <p className="text-sm text-slate-500">Overview of your sales performance</p>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         {isAdmin && (
-          <StatCard title="Total Sellers" value={stats.totalSellers} icon={<Users className="h-6 w-6" />} />
+          <StatCard title="Total Sellers" value={stats.totalSellers} icon={<Users className="h-4 w-4" />} />
         )}
-        <StatCard title="Total Clients" value={stats.totalClients} icon={<UserCircle className="h-6 w-6" />} />
+        <StatCard title="Total Clients" value={stats.totalClients} icon={<UserCircle className="h-4 w-4" />} />
         <StatCard
           title="Total Revenue"
           value={formatCurrency(stats.totalRevenue)}
-          icon={<DollarSign className="h-6 w-6" />}
+          icon={<DollarSign className="h-4 w-4" />}
         />
         <StatCard
           title="Monthly Revenue"
           value={formatCurrency(stats.monthlyRevenue)}
-          icon={<TrendingUp className="h-6 w-6" />}
+          icon={<TrendingUp className="h-4 w-4" />}
         />
         <StatCard
           title="Active Payment Links"
           value={stats.activePaymentLinks}
-          icon={<Link2 className="h-6 w-6" />}
+          icon={<Link2 className="h-4 w-4" />}
         />
         <StatCard
           title="Target Achievement"
           value={`${stats.targetAchievementRate}%`}
-          icon={<Target className="h-6 w-6" />}
+          icon={<Target className="h-4 w-4" />}
         />
         <StatCard
           title="Pending Targets"
           value={stats.pendingTargets}
-          icon={<Clock className="h-6 w-6" />}
+          icon={<Clock className="h-4 w-4" />}
         />
         {isAdmin && topPerformingSellers.length > 0 && (
           <StatCard
             title="Top Seller"
             value={topPerformingSellers[0]?.name || "N/A"}
             subtitle={formatCurrency(topPerformingSellers[0]?.revenue || 0)}
-            icon={<Trophy className="h-6 w-6" />}
+            icon={<Trophy className="h-4 w-4" />}
           />
         )}
       </div>
@@ -128,20 +128,20 @@ export function DashboardContent({ role }: DashboardContentProps) {
               Monthly Target — {formatMonthYear(currentTarget.month ?? currentMonth, currentTarget.year ?? currentYear)}
             </CardTitle>
           </CardHeader>
-          <div className="grid gap-6 md:grid-cols-3">
+          <div className="grid gap-4 md:grid-cols-3">
             <div>
-              <p className="text-sm text-slate-500">Target Amount</p>
-              <p className="text-2xl font-bold">{formatCurrency(currentTarget.targetAmount, currentTarget.currency)}</p>
+              <p className="text-xs text-slate-500">Target Amount</p>
+              <p className="text-xl font-semibold">{formatCurrency(currentTarget.targetAmount, currentTarget.currency)}</p>
             </div>
             <div>
-              <p className="text-sm text-slate-500">Achieved This Month</p>
-              <p className="text-2xl font-bold text-green-600">
+              <p className="text-xs text-slate-500">Achieved This Month</p>
+              <p className="text-xl font-semibold text-green-600">
                 {formatCurrency(currentTarget.achievedAmount, currentTarget.currency)}
               </p>
             </div>
             <div>
-              <p className="text-sm text-slate-500">Remaining</p>
-              <p className="text-2xl font-bold text-orange-600">
+              <p className="text-xs text-slate-500">Remaining</p>
+              <p className="text-xl font-semibold text-orange-600">
                 {formatCurrency(currentTarget.remainingAmount, currentTarget.currency)}
               </p>
             </div>
@@ -207,35 +207,36 @@ export function DashboardContent({ role }: DashboardContentProps) {
         </Card>
       )}
 
-      <div className="grid gap-6 lg:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle>Revenue Trend</CardTitle>
+      <div className="grid gap-4 lg:grid-cols-2">
+        <Card className="p-4">
+          <CardHeader className="mb-3">
+            <CardTitle className="text-base">Revenue Trend</CardTitle>
           </CardHeader>
           {monthlySales.length > 0 ? (
-            <RevenueLineChart data={monthlySales} />
+            <RevenueLineChart data={monthlySales} height={220} />
           ) : (
-            <p className="py-8 text-center text-slate-500">No sales data yet</p>
+            <p className="py-8 text-center text-sm text-slate-500">No sales data yet</p>
           )}
         </Card>
 
         {isAdmin && topPerformingSellers.length > 0 && (
-          <Card>
-            <CardHeader>
-              <CardTitle>Top Performing Sellers</CardTitle>
+          <Card className="p-4">
+            <CardHeader className="mb-3">
+              <CardTitle className="text-base">Top Performing Sellers</CardTitle>
             </CardHeader>
             <RevenueBarChart
               data={topPerformingSellers.map((s) => ({ name: s.name, revenue: s.revenue }))}
+              height={220}
             />
           </Card>
         )}
 
         {revenueByProvider.length > 0 && (
-          <Card>
-            <CardHeader>
-              <CardTitle>Revenue by Payment Method</CardTitle>
+          <Card className="p-4">
+            <CardHeader className="mb-3">
+              <CardTitle className="text-base">Revenue by Payment Method</CardTitle>
             </CardHeader>
-            <ProviderPieChart data={revenueByProvider} />
+            <ProviderPieChart data={revenueByProvider} height={220} />
           </Card>
         )}
       </div>

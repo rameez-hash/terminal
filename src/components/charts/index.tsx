@@ -74,6 +74,7 @@ export function RevenueBarChart({ data, dataKey = "revenue", xKey = "name", heig
 }
 
 export function ProviderPieChart({ data, height = 300 }: ChartProps) {
+  const radius = Math.min(100, Math.round(height / 2 - 30));
   return (
     <ResponsiveContainer width="100%" height={height}>
       <PieChart>
@@ -83,7 +84,7 @@ export function ProviderPieChart({ data, height = 300 }: ChartProps) {
           nameKey="provider"
           cx="50%"
           cy="50%"
-          outerRadius={100}
+          outerRadius={radius}
           label={({ name, percent }) => `${name} ${((percent ?? 0) * 100).toFixed(0)}%`}
         >
           {data.map((_, index) => (
