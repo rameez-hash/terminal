@@ -544,6 +544,13 @@ export async function buildInvoicePdf(invoice: InvoiceData) {
     align: "center",
   });
 
+  const note =
+    "Note: For your reference, payment made for this invoice will appear on your bank or credit card statement as BMD Digital INC., our parent company & authorized billing entity.";
+  setInvoiceFont(doc, "normal", 8);
+  doc.setTextColor(...muted);
+  const noteLines = doc.splitTextToSize(note, pageWidth - 28);
+  doc.text(noteLines, 14, tableEnd + 42);
+
   return doc.output("arraybuffer");
 }
 
