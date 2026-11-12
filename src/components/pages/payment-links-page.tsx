@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { Plus, Search, ExternalLink, Copy, Banknote, RefreshCw, FileText } from "lucide-react";
+import { Plus, Search, ExternalLink, Copy, Banknote, RefreshCw, FileText, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input, Select } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
@@ -53,6 +53,7 @@ export function PaymentLinksPage({ isAdmin }: { isAdmin?: boolean }) {
   const [newClientErrors, setNewClientErrors] = useState<{ email?: string; phone?: string }>({});
   const [submitting, setSubmitting] = useState(false);
   const [syncingId, setSyncingId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const resetModal = () => {
     setClientMode("existing");
@@ -243,6 +244,34 @@ export function PaymentLinksPage({ isAdmin }: { isAdmin?: boolean }) {
     }
   };
 
+  const handleDelete = async (link: PaymentLink) => {
+    if (link.status === "PAID") {
+      toast.error("Paid payment links cannot be deleted");
+      return;
+    }
+    if (
+      !confirm(
+        "Delete this unpaid payment link? The client will no longer be able to use this URL."
+      )
+    ) {
+      return;
+    }
+
+    setDeletingId(link.id);
+    try {
+      const res = await fetch(`/api/payment-links/${link.id}`, { method: "DELETE" });
+      const data = await res.json();
+      if (!res.ok) {
+        toast.error(data.error || "Failed to delete payment link");
+        return;
+      }
+      toast.success("Payment link deleted");
+      fetchLinks();
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
   const statusVariant = (status: string) => {
     switch (status) {
       case "ACTIVE": return "info" as const;
@@ -374,6 +403,18 @@ export function PaymentLinksPage({ isAdmin }: { isAdmin?: boolean }) {
                               <Banknote className="h-4 w-4" />
                             </Button>
                           </>
+                        )}
+                        {link.status !== "PAID" && (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="text-red-600 hover:bg-red-50 hover:text-red-700"
+                            onClick={() => handleDelete(link)}
+                            title="Delete payment link"
+                            loading={deletingId === link.id}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
                         )}
                       </div>
                     </td>
